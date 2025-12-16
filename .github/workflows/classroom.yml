@@ -334,7 +334,13 @@ jobs:
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
       with:
-        runners: "task_01:${{ steps.calculate.outputs.task1_score || 0 }}, task_02:${{ steps.calculate.outputs.task2_score || 0 }}, task_03:${{ steps.calculate.outputs.task3_score || 0 }}"
+        # Попробуем JSON формат
+        runners: |
+          [
+            {"name": "task_01", "points": ${{ steps.calculate.outputs.task1_score || 0 }}},
+            {"name": "task_02", "points": ${{ steps.calculate.outputs.task2_score || 0 }}},
+            {"name": "task_03", "points": ${{ steps.calculate.outputs.task3_score || 0 }}}
+          ]
 
   # JOB: АНАЛИЗ КАЧЕСТВА КОДА С ЛИНТЕРАМИ
   code-quality-analysis:
@@ -351,28 +357,15 @@ jobs:
         python-version: "3.10"
 
     - name: Install linters
-      run: pip install pylint flake8 ruff -q
+      run: |
+        echo "Installing linters..."
+        pip install pylint flake8 ruff -q
+        echo "Linters installed"
 
     - name: Run code analysis
       run: |
         echo "## 🔍 ДЕТАЛЬНЫЙ АНАЛИЗ КАЧЕСТВА КОДА" >> $GITHUB_STEP_SUMMARY
         echo "### Используются линтеры: PyLint, Flake8, Ruff" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Проверяем наличие файлов задач
-        echo "### 📋 Статус файлов задач:" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        for file in task_01.py task_02.py task_03.py; do
-          if [ -f "$file" ]; then
-            echo "✅ **$file** - найден" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **$file** - не найден" >> $GITHUB_STEP_SUMMARY
-          fi
-        done
-        
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "---" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         # Запускаем Python скрипт анализа
