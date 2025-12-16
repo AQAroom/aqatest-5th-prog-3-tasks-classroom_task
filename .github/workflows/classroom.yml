@@ -382,12 +382,27 @@ jobs:
 
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "*Автоматическая проверка завершена* • $(date)" >> $GITHUB_STEP_SUMMARY
+    
+    - name: Debug Before Reporting
+      run: |
+        echo "=== ДЕБАГ ПЕРЕД ОТПРАВКОЙ В CLASSROOM ==="
+        echo "task1_score: ${{ steps.calculate.outputs.task1_score || 'NOT_SET' }}"
+        echo "task2_score: ${{ steps.calculate.outputs.task2_score || 'NOT_SET' }}"
+        echo "task3_score: ${{ steps.calculate.outputs.task3_score || 'NOT_SET' }}"
+        
+        # Формируем строку вручную для проверки
+        RUNNERS_STRING="task_01:${{ steps.calculate.outputs.task1_score || 0 }},task_02:${{ steps.calculate.outputs.task2_score || 0 }},task_03:${{ steps.calculate.outputs.task3_score || 0 }}"
+        echo "Сформированная строка runners: $RUNNERS_STRING"
+        
+        # Проверяем формат
+        echo "Длина строки: ${#RUNNERS_STRING}"
 
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
       with:
         # ФОРМАТ: "runner1:score1,runner2:score2,runner3:score3"
-        runners: "task_01:${{ steps.calculate.outputs.task1_score }},task_02:${{ steps.calculate.outputs.task2_score }},task_03:${{ steps.calculate.outputs.task3_score }}"
+        runners: ${{RUNNERS_STRING}}
+        # runners: "task_01:${{ steps.calculate.outputs.task1_score }},task_02:${{ steps.calculate.outputs.task2_score }},task_03:${{ steps.calculate.outputs.task3_score }}"
         #  task_01:${{ steps.calculate.outputs.task1_score || 0 }},task_02:${{ steps.calculate.outputs.task2_score || 0 }},task_03:${{ steps.calculate.outputs.task3_score || 0 }}
         
   # JOB: АНАЛИЗ КАЧЕСТВА КОДА С ЛИНТЕРАМИ
