@@ -190,8 +190,6 @@ jobs:
           while IFS= read -r line; do
             if [[ "$line" == TASK*_TOTAL=* ]]; then
               echo "$line"
-              # Сохраняем в переменные окружения
-              echo "${line}" >> $GITHUB_ENV
             fi
           done < scores.txt
           
@@ -423,28 +421,8 @@ jobs:
     
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
-      env:
-        TASK1_SCORE: ${{ steps.aggregate.outputs.task1_score || 0 }}
-        TASK2_SCORE: ${{ steps.aggregate.outputs.task2_score || 0 }}
-        TASK3_SCORE: ${{ steps.aggregate.outputs.task3_score || 0 }}
-        TOTAL_SCORE: ${{ steps.aggregate.outputs.total_score || 0 }}
       with:
-        runners: |
-          {
-            "task_01": {
-              "run": "echo 'Task 1 completed'",
-              "points": ${{ env.TASK1_SCORE }}
-            },
-            "task_02": {
-              "run": "echo 'Task 2 completed'",
-              "points": ${{ env.TASK2_SCORE }}
-            },
-            "task_03": {
-              "run": "echo 'Task 3 completed'",
-              "points": ${{ env.TASK3_SCORE }}
-            }
-          }
-        max-total-score: ${{ steps.aggregate.outputs.max_score || 110 }}
+        runners: task_01: ${{ steps.aggregate.outputs.task1_score || 0 }}, task_02: ${{ steps.aggregate.outputs.task2_score || 0 }}, task_03: ${{ steps.aggregate.outputs.task3_score || 0 }}
 
   # JOB: ПРОВЕРКА КАЧЕСТВА КОДА
   code-quality-check:
