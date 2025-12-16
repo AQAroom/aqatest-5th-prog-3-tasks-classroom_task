@@ -39,7 +39,7 @@ if __name__ == "__main__":
         
         total = add_score + sub_score + div_zero_score
         print(f"TASK1_TOTAL={total}")
-        print(f"TASK1_DETAILS=Сложение:{add_score},Вычитание:{sub_score},Деление на ноль:{div_zero_score}")
+        print(f"TASK1_DETAILS=addition:{add_score},subtraction:{sub_score},division_by_zero:{div_zero_score}")
         
     elif task == "2":
         simple_result = sys.argv[2]
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         
         total = simple_score + not_score + empty_score
         print(f"TASK2_TOTAL={total}")
-        print(f"TASK2_DETAILS=Простой палиндром:{simple_score},Не палиндром:{not_score},Пустая строка:{empty_score}")
+        print(f"TASK2_DETAILS=simple_palindrome:{simple_score},not_palindrome:{not_score},empty_string:{empty_score}")
         
     elif task == "3":
         fib0_result = sys.argv[2]
@@ -65,4 +65,4 @@ if __name__ == "__main__":
         
         total = fib0_score + fib1_score + fib10_score
         print(f"TASK3_TOTAL={total}")
-        print(f"TASK3_DETAILS=Fibonacci(0):{fib0_score},Fibonacci(1):{fib1_score},Fibonacci(10):{fib10_score}")
+        print(f"TASK3_DETAILS=fibonacci_0:{fib0_score},fibonacci_1:{fib1_score},fibonacci_10:{fib10_score}")
