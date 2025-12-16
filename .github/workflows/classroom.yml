@@ -401,7 +401,7 @@ jobs:
       uses: classroom-resources/autograding-grading-reporter@v1
       with:
         # ФОРМАТ: "runner1:score1,runner2:score2,runner3:score3"
-        runners: ${{RUNNERS_STRING}}
+        runners: "task_01:${{ steps.calculate.outputs.task1_score || 0 }},task_02:${{ steps.calculate.outputs.task2_score || 0 }},task_03:${{ steps.calculate.outputs.task3_score || 0 }}"
         # runners: "task_01:${{ steps.calculate.outputs.task1_score }},task_02:${{ steps.calculate.outputs.task2_score }},task_03:${{ steps.calculate.outputs.task3_score }}"
         #  task_01:${{ steps.calculate.outputs.task1_score || 0 }},task_02:${{ steps.calculate.outputs.task2_score || 0 }},task_03:${{ steps.calculate.outputs.task3_score || 0 }}
         
