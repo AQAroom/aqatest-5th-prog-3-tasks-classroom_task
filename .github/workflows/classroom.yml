@@ -143,7 +143,19 @@ jobs:
         comparison-method: exact
         timeout: 5
         max-score: 20
-    
+
+    - name: Debug Test Results
+      run: |
+        echo "=== ПРОВЕРКА РЕЗУЛЬТАТОВ ТЕСТОВ С check_json.py ==="
+        
+        echo ""
+        echo "1. task1_add:"
+        echo "${{ steps.task1_add.outputs.result }}" | python3 tools/check_json.py "task1_add"
+        
+        echo ""
+        echo "2. task1_sub:"
+        echo "${{ steps.task1_sub.outputs.result }}" | python3 tools/check_json.py "task1_sub"
+
     # ============ АГРЕГАЦИЯ РЕЗУЛЬТАТОВ ============
     - name: Aggregate Task 1 Results
       id: aggregate_task1
