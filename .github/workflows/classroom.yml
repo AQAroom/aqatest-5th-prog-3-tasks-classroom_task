@@ -336,7 +336,7 @@ jobs:
         TASK_02_RESULTS: '{"score": ${{ steps.calculate.outputs.task2_score || 0 }}, "max_score": 40}'
         TASK_03_RESULTS: '{"score": ${{ steps.calculate.outputs.task3_score || 0 }}, "max_score": 40}'
       with:
-        runners: "task_01,task_02,task_03"
+        runners: task_01,task_02,task_03
 
         # TASK_01_RESULTS: '{"points": ${{ steps.calculate.outputs.task1_score || 0 }}}'
         # TASK_02_RESULTS: '{"points": ${{ steps.calculate.outputs.task2_score || 0 }}}'
