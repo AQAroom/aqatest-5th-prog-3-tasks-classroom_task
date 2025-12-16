@@ -157,31 +157,29 @@ jobs:
         timeout: 5
         max-score: 20
     
-    # ============ ПРОСТОЙ ПАРСЕР БАЛЛОВ ============
-    - name: Parse Scores
+    # ============ ПАРСИМ РЕАЛЬНЫЕ БАЛЛЫ ============
+    - name: Parse Real Scores
       if: always()
       run: |
-        # Простой парсер - даем баллы за наличие файлов
-        SCORE=0
-        
         if [ "${{ matrix.task }}" = "1" ]; then
-          if [ -f "task_01.py" ]; then
-            SCORE=10
-          fi
+          # Парсим баллы из autograding результатов для задачи 1
+          python3 tools/parse_scores.py 1 \
+            "${{ steps.task1_add.outputs.result }}" \
+            "${{ steps.task1_sub.outputs.result }}" \
+            "${{ steps.task1_div_zero.outputs.result }}" > task_score.txt
           
         elif [ "${{ matrix.task }}" = "2" ]; then
-          if [ -f "task_02.py" ]; then
-            SCORE=10
-          fi
+          # Для задачи 2
+          python3 tools/parse_scores.py 2 > task_score.txt
           
         elif [ "${{ matrix.task }}" = "3" ]; then
-          if [ -f "task_03.py" ]; then
-            SCORE=10
-          fi
+          # Для задачи 3
+          python3 tools/parse_scores.py 3 > task_score.txt
         fi
         
-        echo "TASK_SCORE=$SCORE" > task_score.txt
-        echo "Task ${{ matrix.task }} score: $SCORE"
+        # echo "Task ${{ matrix.task }} score: $SCORE"
+        echo "Task ${{ matrix.task }} score:"
+        cat task_score.txt
     
     - name: Upload Score Artifact
       if: always()
@@ -334,7 +332,8 @@ jobs:
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
       with:
-        runners: "task_01:${{ steps.calculate.outputs.task1_score }},task_02:${{ steps.calculate.outputs.task2_score }},task_03:${{ steps.calculate.outputs.task3_score }}"
+        runners: "task_01:${{ steps.calculate.outputs.task1_score || 0 }},task_02:${{ steps.calculate.outputs.task2_score || 0 }},task_03:${{ steps.calculate.outputs.task3_score || 0 }}"
+        # runners: "task_01:${{ steps.calculate.outputs.task1_score }},task_02:${{ steps.calculate.outputs.task2_score }},task_03:${{ steps.calculate.outputs.task3_score }}"
         # Попробуем JSON формат
         # runners: |
         #  [
