@@ -332,11 +332,16 @@ jobs:
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
       env:
-        TASK_01_RESULTS: '{"points": ${{ steps.calculate.outputs.task1_score || 0 }}}'
-        TASK_02_RESULTS: '{"points": ${{ steps.calculate.outputs.task2_score || 0 }}}'
-        TASK_03_RESULTS: '{"points": ${{ steps.calculate.outputs.task3_score || 0 }}}'
+        TASK_01_RESULTS: '{"score": ${{ steps.calculate.outputs.task1_score || 0 }}, "max_score": 30}'
+        TASK_02_RESULTS: '{"score": ${{ steps.calculate.outputs.task2_score || 0 }}, "max_score": 40}'
+        TASK_03_RESULTS: '{"score": ${{ steps.calculate.outputs.task3_score || 0 }}, "max_score": 40}'
       with:
         runners: "task_01,task_02,task_03"
+
+        # TASK_01_RESULTS: '{"points": ${{ steps.calculate.outputs.task1_score || 0 }}}'
+        # TASK_02_RESULTS: '{"points": ${{ steps.calculate.outputs.task2_score || 0 }}}'
+        # TASK_03_RESULTS: '{"points": ${{ steps.calculate.outputs.task3_score || 0 }}}'
+
         # runners: "task_01:${{ steps.calculate.outputs.task1_score || 0 }},task_02:${{ steps.calculate.outputs.task2_score || 0 }},task_03:${{ steps.calculate.outputs.task3_score || 0 }}"
         # runners: "task_01:${{ steps.calculate.outputs.task1_score }},task_02:${{ steps.calculate.outputs.task2_score }},task_03:${{ steps.calculate.outputs.task3_score }}"
         # Попробуем JSON формат
