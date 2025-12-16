@@ -161,12 +161,70 @@ jobs:
     - name: Extract and Save Scores
       if: always()
       run: |
-        # Запускаем скрипт с соответствующими аргументами
+        echo "DEBUG: Starting score extraction for task ${{ matrix.task }}"
+        
+        # Проверяем, есть ли результаты тестов
         if [ "${{ matrix.task }}" = "1" ]; then
-          python3 tools/extract_scores.py 1 \
-            "${{ steps.task1_add.outputs.result }}" \
-            "${{ steps.task1_sub.outputs.result }}" \
-            "${{ steps.task1_div_zero.outputs.result }}" > scores.txt
+          echo "Task 1 results:"
+          echo "task1_add: ${{ steps.task1_add.outputs.result }}"
+          echo "task1_sub: ${{ steps.task1_sub.outputs.result }}"
+          echo "task1_div_zero: ${{ steps.task1_div_zero.outputs.result }}"
+          
+          # Пробуем извлечь баллы напрямую
+          python3 << 'EOF'
+import sys
+import json
+import base64
+
+def get_score(encoded_result):
+    if not encoded_result or encoded_result == 'null':
+        return 0
+    try:
+        # Пробуем разные форматы
+        decoded = base64.b64decode(encoded_result).decode('utf-8')
+        print(f"DEBUG: Decoded result: {decoded[:200]}...")
+        data = json.loads(decoded)
+        
+        # Формат 1: {'tests': [{'score': X}]}
+        if 'tests' in data and len(data['tests']) > 0:
+            score = data['tests'][0].get('score', 0)
+            print(f"DEBUG: Score from tests: {score}")
+            return score
+            
+        # Формат 2: {'score': X}
+        elif 'score' in data:
+            score = data['score']
+            print(f"DEBUG: Score from root: {score}")
+            return score
+            
+        # Формат 3: {'result': {'score': X}}
+        elif 'result' in data and 'score' in data['result']:
+            score = data['result']['score']
+            print(f"DEBUG: Score from result.score: {score}")
+            return score
+            
+        else:
+            print(f"DEBUG: Unknown format: {data}")
+            return 0
+            
+    except Exception as e:
+        print(f"DEBUG: Error: {e}")
+        return 0
+
+# Получаем результаты
+add_result = sys.argv[1]
+sub_result = sys.argv[2]
+div_zero_result = sys.argv[3]
+
+add_score = get_score(add_result)
+sub_score = get_score(sub_result)
+div_zero_score = get_score(div_zero_result)
+
+total = add_score + sub_score + div_zero_score
+
+print(f"TASK1_TOTAL={total}")
+print(f"TASK1_DETAILS=addition:{add_score},subtraction:{sub_score},division_by_zero:{div_zero_score}")
+EOF "${{ steps.task1_add.outputs.result }}" "${{ steps.task1_sub.outputs.result }}" "${{ steps.task1_div_zero.outputs.result }}" > scores.txt
           
         elif [ "${{ matrix.task }}" = "2" ]; then
           python3 tools/extract_scores.py 2 \
@@ -181,18 +239,9 @@ jobs:
             "${{ steps.task3_fib10.outputs.result }}" > scores.txt
         fi
         
-        # Загружаем результаты в переменные (без source для безопасности)
         if [ -f scores.txt ]; then
           echo "Content of scores.txt:"
           cat scores.txt
-          
-          # Извлекаем только TASK*_TOTAL значения
-          while IFS= read -r line; do
-            if [[ "$line" == TASK*_TOTAL=* ]]; then
-              echo "$line"
-            fi
-          done < scores.txt
-          
           echo "Scores extracted for task ${{ matrix.task }}"
         else
           echo "No scores file created"
@@ -227,15 +276,11 @@ jobs:
         TASK1_SCORE=0
         TASK2_SCORE=0
         TASK3_SCORE=0
-        TASK1_DETAILS=""
-        TASK2_DETAILS=""
-        TASK3_DETAILS=""
         
-        # Парсим все файлы scores.txt БЕЗ eval
+        # Парсим все файлы scores.txt
         for file in $(find ./artifacts -name "scores.txt"); do
           echo "Processing file: $file"
           
-          # Используем безопасное чтение с фильтрацией
           while IFS= read -r line || [[ -n "$line" ]]; do
             if [[ "$line" =~ ^TASK1_TOTAL=([0-9]+)$ ]]; then
               TASK1_SCORE="${BASH_REMATCH[1]}"
@@ -246,12 +291,6 @@ jobs:
             elif [[ "$line" =~ ^TASK3_TOTAL=([0-9]+)$ ]]; then
               TASK3_SCORE="${BASH_REMATCH[1]}"
               echo "Found TASK3_SCORE: $TASK3_SCORE"
-            elif [[ "$line" =~ ^TASK1_DETAILS=(.+)$ ]]; then
-              TASK1_DETAILS="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^TASK2_DETAILS=(.+)$ ]]; then
-              TASK2_DETAILS="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^TASK3_DETAILS=(.+)$ ]]; then
-              TASK3_DETAILS="${BASH_REMATCH[1]}"
             fi
           done < "$file"
         done
@@ -260,9 +299,6 @@ jobs:
         TASK1_SCORE=${TASK1_SCORE:-0}
         TASK2_SCORE=${TASK2_SCORE:-0}
         TASK3_SCORE=${TASK3_SCORE:-0}
-        TASK1_DETAILS=${TASK1_DETAILS:-"Нет данных"}
-        TASK2_DETAILS=${TASK2_DETAILS:-"Нет данных"}
-        TASK3_DETAILS=${TASK3_DETAILS:-"Нет данных"}
         
         # Максимальные баллы
         TASK1_MAX=30
@@ -278,52 +314,14 @@ jobs:
         echo "task3_score=$TASK3_SCORE" >> $GITHUB_OUTPUT
         echo "total_score=$TOTAL_SCORE" >> $GITHUB_OUTPUT
         echo "max_score=$MAX_SCORE" >> $GITHUB_OUTPUT
-        
-        # Сохраняем в файл (безопасно)
-        {
-          echo "TASK1_SCORE=$TASK1_SCORE"
-          echo "TASK2_SCORE=$TASK2_SCORE"
-          echo "TASK3_SCORE=$TASK3_SCORE"
-          echo "TOTAL_SCORE=$TOTAL_SCORE"
-          echo "MAX_SCORE=$MAX_SCORE"
-          echo "TASK1_DETAILS=$TASK1_DETAILS"
-          echo "TASK2_DETAILS=$TASK2_DETAILS"
-          echo "TASK3_DETAILS=$TASK3_DETAILS"
-        } > aggregated_scores.txt
     
     - name: Generate Final Summary
       run: |
-        # Читаем агрегированные результаты безопасно
-        TASK1_SCORE=0
-        TASK2_SCORE=0
-        TASK3_SCORE=0
-        TOTAL_SCORE=0
-        MAX_SCORE=110
-        TASK1_DETAILS=""
-        TASK2_DETAILS=""
-        TASK3_DETAILS=""
-        
-        if [ -f aggregated_scores.txt ]; then
-          while IFS= read -r line || [[ -n "$line" ]]; do
-            if [[ "$line" =~ ^TASK1_SCORE=([0-9]+)$ ]]; then
-              TASK1_SCORE="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^TASK2_SCORE=([0-9]+)$ ]]; then
-              TASK2_SCORE="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^TASK3_SCORE=([0-9]+)$ ]]; then
-              TASK3_SCORE="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^TOTAL_SCORE=([0-9]+)$ ]]; then
-              TOTAL_SCORE="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^MAX_SCORE=([0-9]+)$ ]]; then
-              MAX_SCORE="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^TASK1_DETAILS=(.+)$ ]]; then
-              TASK1_DETAILS="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^TASK2_DETAILS=(.+)$ ]]; then
-              TASK2_DETAILS="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^TASK3_DETAILS=(.+)$ ]]; then
-              TASK3_DETAILS="${BASH_REMATCH[1]}"
-            fi
-          done < aggregated_scores.txt
-        fi
+        TASK1_SCORE=${{ steps.aggregate.outputs.task1_score || 0 }}
+        TASK2_SCORE=${{ steps.aggregate.outputs.task2_score || 0 }}
+        TASK3_SCORE=${{ steps.aggregate.outputs.task3_score || 0 }}
+        TOTAL_SCORE=${{ steps.aggregate.outputs.total_score || 0 }}
+        MAX_SCORE=${{ steps.aggregate.outputs.max_score || 110 }}
         
         # Расчет процента
         if [ "$MAX_SCORE" -gt 0 ]; then
@@ -367,31 +365,6 @@ jobs:
         echo "| **ВСЕГО** | **$TOTAL_SCORE** | **$MAX_SCORE** | **$PERCENTAGE%** |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        echo "### 📝 Детализация по заданиям" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Функция для парсинга деталей
-        parse_details() {
-          local details="$1"
-          echo "$details" | tr ',' '\n' | while IFS=':' read -r test score; do
-            if [ -n "$test" ] && [ -n "$score" ]; then
-              echo "  - $test: **$score** баллов"
-            fi
-          done
-        }
-        
-        echo "#### 🧮 Задача 1: Калькулятор" >> $GITHUB_STEP_SUMMARY
-        parse_details "$TASK1_DETAILS" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        echo "#### 🔤 Задача 2: Проверка палиндромов" >> $GITHUB_STEP_SUMMARY
-        parse_details "$TASK2_DETAILS" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        echo "#### 🔢 Задача 3: Числа Фибоначчи" >> $GITHUB_STEP_SUMMARY
-        parse_details "$TASK3_DETAILS" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
         # Прогресс-бар
         echo "### 📊 Общий прогресс" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -422,9 +395,9 @@ jobs:
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
       with:
-        runners: task_01:${{ steps.aggregate.outputs.task1_score || 0 }},task_02:${{ steps.aggregate.outputs.task2_score || 0 }},task_03:${{ steps.aggregate.outputs.task3_score || 0 }}
+        runners: "task_01:${{ steps.aggregate.outputs.task1_score || 0 }},task_02:${{ steps.aggregate.outputs.task2_score || 0 }},task_03:${{ steps.aggregate.outputs.task3_score || 0 }}"
 
-  # JOB: ПРОВЕРКА КАЧЕСТВА КОДА (информация для студента)
+  # JOB: ПРОВЕРКА КАЧЕСТВА КОДА (только задачи)
   code-quality-check:
     name: Проверка качества кода
     runs-on: ubuntu-latest
@@ -441,144 +414,115 @@ jobs:
 
     - name: Install linters
       run: |
-        echo "## 🔍 Code Quality Analysis" >> $GITHUB_STEP_SUMMARY
-        echo "### Отчет предназначен только для ознакомительных целей!" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-    
-        echo "📦 Installing linters..." >> $GITHUB_STEP_SUMMARY
         pip install pylint flake8 ruff -q
-        echo "✅ Установлены: Pylint, Flake8, Ruff" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
 
-    - name: Run linters
+    - name: Analyze student code
       run: |
-        # Ищем ВСЕ .py файлы в репозитории. Исключаем и папку tests/, и файлы test_*.py в корне
-        files=$(git ls-files '*.py' | grep -v '^tests/' | grep -v '^test_.*\.py$')
-        if [ -z "$files" ]; then
-          echo "⚠️ Не найдены Python-файлы в твоём репозитарии." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "*Примечание учащимся:*" >> $GITHUB_STEP_SUMMARY
-          echo "*проверка качества кода может повлиять на твою оценку.*" >> $GITHUB_STEP_SUMMARY
-          exit 0
-        fi
-    
-        echo "Found $(echo "$files" | wc -l) Python file(s)." >> $GITHUB_STEP_SUMMARY
+        echo "## 🔍 АНАЛИЗ КАЧЕСТВА КОДА" >> $GITHUB_STEP_SUMMARY
+        echo "### Отчет для студента (может влиять на оценку)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-    
-        # Проверяем конкретно файлы задач
-        echo "### 📋 Проверяемые файлы задач:" >> $GITHUB_STEP_SUMMARY
+        
+        # Определяем файлы задач для проверки
+        TASK_FILES="task_01.py task_02.py task_03.py"
+        FOUND_FILES=""
+        
+        echo "### 📋 Файлы задач:" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        for task_file in task_01.py task_02.py task_03.py; do
-          if [ -f "$task_file" ]; then
-            echo "✅ **$task_file** найден" >> $GITHUB_STEP_SUMMARY
+        
+        for file in $TASK_FILES; do
+          if [ -f "$file" ]; then
+            echo "✅ **$file** - найден" >> $GITHUB_STEP_SUMMARY
+            FOUND_FILES="$FOUND_FILES $file"
           else
-            echo "⚠️ **$task_file** не найден" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **$file** - не найден" >> $GITHUB_STEP_SUMMARY
           fi
         done
-        echo "" >> $GITHUB_STEP_SUMMARY
-    
-        # PyLint
-        echo "### 🐍 PyLint Results (комплексная проверка)" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        pylint $files --exit-zero --score=yes 2>&1 >> $GITHUB_STEP_SUMMARY || echo "PyLint failed" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-    
-        # Flake8
-        echo "### ✨ Flake8 Results (стиль и простые ошибки)" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        flake8 $files --count --exit-zero --statistics 2>&1 >> $GITHUB_STEP_SUMMARY || echo "Flake8 failed" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-    
-        # Ruff - САМЫЙ БЫСТРЫЙ И СОВРЕМЕННЫЙ
-        echo "### ⚡ Ruff Results (мгновенная проверка)" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        ruff check $files --statistics --exit-zero 2>&1 >> $GITHUB_STEP_SUMMARY || echo "Ruff failed" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-    
-        # Сводка
-        echo "### 📊 Summary" >> $GITHUB_STEP_SUMMARY
-        echo "| Tool | Result | Status | Описание |" >> $GITHUB_STEP_SUMMARY
-        echo "|------|--------|--------|----------|" >> $GITHUB_STEP_SUMMARY
-    
-        # PyLint score
-        pylint_score=$(pylint $files --exit-zero --score=yes 2>&1 | grep -o 'rated at [0-9.]*' | cut -d' ' -f3)
-        if [ -z "$pylint_score" ]; then
-          pylint_score="N/A"
-          pylint_status="❓"
-        elif awk "BEGIN {exit ($pylint_score < 8.0)}"; then
-          pylint_status="✅ Хорошо"
-        else
-          pylint_status="⚠️ Улучши"
-        fi
-        echo "| PyLint | $pylint_score/10 | $pylint_status | Комплексная проверка |" >> $GITHUB_STEP_SUMMARY
-    
-        # Flake8 count
-        flake8_errors=$(flake8 $files --count 2>/dev/null | tail -1)
-        if ! [[ "$flake8_errors" =~ ^[0-9]+$ ]]; then
-          flake8_errors="0"
-        fi
-        if [ "$flake8_errors" -eq 0 ]; then
-          flake8_status="✅ Отлично"
-        elif [ "$flake8_errors" -le 5 ]; then
-          flake8_status="⚠️ Средне"
-        else
-          flake8_status="❌ Много"
-        fi
-        echo "| Flake8 | $flake8_errors ошибок | $flake8_status | Стиль и простые ошибки |" >> $GITHUB_STEP_SUMMARY
-    
-        # Ruff count
-        ruff_output=$(ruff check $files 2>&1 | grep -v "^warning:")
-        ruff_errors=$(echo "$ruff_output" | grep -i "found" | grep -oE '[0-9]+' | head -1)
         
-        if [ -z "$ruff_errors" ]; then
-            ruff_errors="0"
-        fi
-
-        # Время выполнения Ruff
-        ruff_time=$( { time ruff check $files --quiet >/dev/null 2>&1; } 2>&1 | grep real | awk '{print $2}' )
-        
-        if [ "$ruff_errors" -eq 0 ]; then
-          ruff_status="✅ Отлично"
-        elif [ "$ruff_errors" -le 5 ]; then
-          ruff_status="⚠️ Средне"
-        else
-          ruff_status="❌ Много"
-        fi
-       
-        echo "| Ruff ⚡ | $ruff_errors ошибок | $ruff_status | Мгновенно ($ruff_time) |" >> $GITHUB_STEP_SUMMARY
-
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Рекомендации на основе результатов
-        echo "### 💡 Рекомендации" >> $GITHUB_STEP_SUMMARY
-        
-        if [ "$ruff_errors" -gt 0 ]; then
-          echo "- 🔧 **Исправьте ошибки с помощью Ruff:**" >> $GITHUB_STEP_SUMMARY
-          echo '  ```bash' >> $GITHUB_STEP_SUMMARY
-          echo '  # Автоисправление большинства проблем' >> $GITHUB_STEP_SUMMARY
-          echo '  ruff check --fix .' >> $GITHUB_STEP_SUMMARY
-          echo '  ```' >> $GITHUB_STEP_SUMMARY
+        if [ -z "$FOUND_FILES" ]; then
+          echo "⚠️ **Нет файлов задач для анализа!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "*Создайте файлы task_01.py, task_02.py, task_03.py в корне репозитория*" >> $GITHUB_STEP_SUMMARY
+          exit 0
         fi
         
-        if [ "$flake8_errors" -gt "$ruff_errors" ]; then
-          echo "- 📝 **Flake8 нашел дополнительные ошибки стиля**" >> $GITHUB_STEP_SUMMARY
-        fi
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
         
-        if [ ! "$pylint_score" = "N/A" ] && [ "$(echo "$pylint_score < 7.0" | bc -l 2>/dev/null || echo 0)" -eq 1 ]; then
-          echo "- 🎯 **Улучшите архитектуру кода (Pylint score < 7.0)**" >> $GITHUB_STEP_SUMMARY
-        fi
+        # Сводная таблица по файлам
+        echo "### 📊 Сводная таблица качества кода" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Файл | PyLint | Flake8 | Ruff | Статус |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|--------|--------|------|--------|" >> $GITHUB_STEP_SUMMARY
+        
+        for file in $FOUND_FILES; do
+          # PyLint score
+          pylint_score=$(pylint "$file" --exit-zero --score=yes 2>&1 | grep -o 'rated at [0-9.]*' | cut -d' ' -f3 || echo "0")
+          
+          # Flake8 errors
+          flake8_errors=$(flake8 "$file" --count 2>/dev/null | tail -1)
+          if ! [[ "$flake8_errors" =~ ^[0-9]+$ ]]; then
+            flake8_errors="0"
+          fi
+          
+          # Ruff errors
+          ruff_errors=$(ruff check "$file" 2>&1 | grep -c ".py:" || echo "0")
+          
+          # Определяем общий статус
+          if [ "$(echo "$pylint_score >= 8.0" | bc -l 2>/dev/null || echo 0)" -eq 1 ] && [ "$flake8_errors" -eq 0 ] && [ "$ruff_errors" -eq 0 ]; then
+            status="✅ Отлично"
+          elif [ "$(echo "$pylint_score >= 6.0" | bc -l 2>/dev/null || echo 0)" -eq 1 ] && [ "$flake8_errors" -le 5 ] && [ "$ruff_errors" -le 5 ]; then
+            status="⚠️ Средне"
+          else
+            status="❌ Плохо"
+          fi
+          
+          echo "| $file | $pylint_score/10 | $flake8_errors ошибок | $ruff_errors ошибок | $status |" >> $GITHUB_STEP_SUMMARY
+        done
         
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "---" >> $GITHUB_STEP_SUMMARY
-        echo "### 📚 Полезные ссылки" >> $GITHUB_STEP_SUMMARY
-        echo "- [Ruff Documentation](https://docs.astral.sh/ruff/)" >> $GITHUB_STEP_SUMMARY
-        echo "- [PEP 8 Style Guide](https://peps.python.org/pep-0008/)" >> $GITHUB_STEP_SUMMARY
-        echo "- [Pylint Tutorial](https://pylint.pycqa.org/en/latest/tutorial.html)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "*Примечание учащимся:*" >> $GITHUB_STEP_SUMMARY
-        echo "*Проверка качества кода может повлиять на твою оценку.*" >> $GITHUB_STEP_SUMMARY
-        echo "*Используйте ее, чтобы улучшить свои навыки программирования!*" >> $GITHUB_STEP_SUMMARY
+        
+        # Детальный анализ каждого файла
+        for file in $FOUND_FILES; do
+          echo "### 📄 Детальный анализ: **$file**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Показываем основные ошибки Ruff
+          echo "#### ⚡ Основные ошибки (Ruff):" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ruff check "$file" --select=E,F 2>&1 | head -20 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Показываем оценку PyLint
+          echo "#### 🐍 Оценка качества (PyLint):" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          pylint "$file" --exit-zero --score=yes 2>&1 | tail -5 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        done
+        
+        # Рекомендации
+        echo "### 💡 Рекомендации по улучшению кода:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Используйте автоматическое исправление:**" >> $GITHUB_STEP_SUMMARY
+        echo '   ```bash' >> $GITHUB_STEP_SUMMARY
+        echo '   ruff check --fix .' >> $GITHUB_STEP_SUMMARY
+        echo '   ```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Следуйте PEP 8:**" >> $GITHUB_STEP_SUMMARY
+        echo "   - 4 пробела для отступов" >> $GITHUB_STEP_SUMMARY
+        echo "   - Максимум 79 символов в строке" >> $GITHUB_STEP_SUMMARY
+        echo "   - Пробелы вокруг операторов" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Добавляйте комментарии:**" >> $GITHUB_STEP_SUMMARY
+        echo "   - Описание сложных алгоритмов" >> $GITHUB_STEP_SUMMARY
+        echo "   - Документацию к функциям" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "*Качество кода влияет на итоговую оценку!*" >> $GITHUB_STEP_SUMMARY
