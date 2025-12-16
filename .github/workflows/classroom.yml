@@ -163,19 +163,19 @@ jobs:
       run: |
         # Запускаем скрипт с соответствующими аргументами
         if [ "${{ matrix.task }}" = "1" ]; then
-          python3 extract_scores.py 1 \
+          python3 tools/extract_scores.py 1 \
             "${{ steps.task1_add.outputs.result }}" \
             "${{ steps.task1_sub.outputs.result }}" \
             "${{ steps.task1_div_zero.outputs.result }}" > scores.txt
           
         elif [ "${{ matrix.task }}" = "2" ]; then
-          python3 extract_scores.py 2 \
+          python3 tools/extract_scores.py 2 \
             "${{ steps.task2_simple.outputs.result }}" \
             "${{ steps.task2_not_palindrome.outputs.result }}" \
             "${{ steps.task2_empty.outputs.result }}" > scores.txt
           
         elif [ "${{ matrix.task }}" = "3" ]; then
-          python3 extract_scores.py 3 \
+          python3 tools/extract_scores.py 3 \
             "${{ steps.task3_fib0.outputs.result }}" \
             "${{ steps.task3_fib1.outputs.result }}" \
             "${{ steps.task3_fib10.outputs.result }}" > scores.txt
@@ -422,12 +422,9 @@ jobs:
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
       with:
-        runners: |
-          task_01:${{ steps.aggregate.outputs.task1_score || 0 }},
-          task_02:${{ steps.aggregate.outputs.task2_score || 0 }},
-          task_03:${{ steps.aggregate.outputs.task3_score || 0 }}
+        runners: task_01:${{ steps.aggregate.outputs.task1_score || 0 }},task_02:${{ steps.aggregate.outputs.task2_score || 0 }},task_03:${{ steps.aggregate.outputs.task3_score || 0 }}
 
-  # JOB: ПРОВЕРКА КАЧЕСТВА КОДА
+  # JOB: ПРОВЕРКА КАЧЕСТВА КОДА (информация для студента)
   code-quality-check:
     name: Проверка качества кода
     runs-on: ubuntu-latest
@@ -436,38 +433,152 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
-    
+
     - name: Install linters
-      run: pip install pylint flake8 ruff -q
-    
-    - name: Create linter report
       run: |
-        echo "## 🔍 АНАЛИЗ КАЧЕСТВА КОДА ДЛЯ ВСЕХ ЗАДАЧ" >> $GITHUB_STEP_SUMMARY
+        echo "## 🔍 Code Quality Analysis" >> $GITHUB_STEP_SUMMARY
+        echo "### Отчет предназначен только для ознакомительных целей!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Запускаем анализ
-        python3 analyze_code.py >> $GITHUB_STEP_SUMMARY
-        
+    
+        echo "📦 Installing linters..." >> $GITHUB_STEP_SUMMARY
+        pip install pylint flake8 ruff -q
+        echo "✅ Установлены: Pylint, Flake8, Ruff" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+    - name: Run linters
+      run: |
+        # Ищем ВСЕ .py файлы в репозитории. Исключаем и папку tests/, и файлы test_*.py в корне
+        files=$(git ls-files '*.py' | grep -v '^tests/' | grep -v '^test_.*\.py$')
+        if [ -z "$files" ]; then
+          echo "⚠️ Не найдены Python-файлы в твоём репозитарии." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Примечание учащимся:*" >> $GITHUB_STEP_SUMMARY
+          echo "*проверка качества кода может повлиять на твою оценку.*" >> $GITHUB_STEP_SUMMARY
+          exit 0
+        fi
+    
+        echo "Found $(echo "$files" | wc -l) Python file(s)." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+    
+        # Проверяем конкретно файлы задач
+        echo "### 📋 Проверяемые файлы задач:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        for task_file in task_01.py task_02.py task_03.py; do
+          if [ -f "$task_file" ]; then
+            echo "✅ **$task_file** найден" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **$task_file** не найден" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+        echo "" >> $GITHUB_STEP_SUMMARY
+    
+        # PyLint
+        echo "### 🐍 PyLint Results (комплексная проверка)" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        pylint $files --exit-zero --score=yes 2>&1 >> $GITHUB_STEP_SUMMARY || echo "PyLint failed" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+    
+        # Flake8
+        echo "### ✨ Flake8 Results (стиль и простые ошибки)" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        flake8 $files --count --exit-zero --statistics 2>&1 >> $GITHUB_STEP_SUMMARY || echo "Flake8 failed" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+    
+        # Ruff - САМЫЙ БЫСТРЫЙ И СОВРЕМЕННЫЙ
+        echo "### ⚡ Ruff Results (мгновенная проверка)" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        ruff check $files --statistics --exit-zero 2>&1 >> $GITHUB_STEP_SUMMARY || echo "Ruff failed" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+    
         # Сводка
+        echo "### 📊 Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Tool | Result | Status | Описание |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|--------|--------|----------|" >> $GITHUB_STEP_SUMMARY
+    
+        # PyLint score
+        pylint_score=$(pylint $files --exit-zero --score=yes 2>&1 | grep -o 'rated at [0-9.]*' | cut -d' ' -f3)
+        if [ -z "$pylint_score" ]; then
+          pylint_score="N/A"
+          pylint_status="❓"
+        elif awk "BEGIN {exit ($pylint_score < 8.0)}"; then
+          pylint_status="✅ Хорошо"
+        else
+          pylint_status="⚠️ Улучши"
+        fi
+        echo "| PyLint | $pylint_score/10 | $pylint_status | Комплексная проверка |" >> $GITHUB_STEP_SUMMARY
+    
+        # Flake8 count
+        flake8_errors=$(flake8 $files --count 2>/dev/null | tail -1)
+        if ! [[ "$flake8_errors" =~ ^[0-9]+$ ]]; then
+          flake8_errors="0"
+        fi
+        if [ "$flake8_errors" -eq 0 ]; then
+          flake8_status="✅ Отлично"
+        elif [ "$flake8_errors" -le 5 ]; then
+          flake8_status="⚠️ Средне"
+        else
+          flake8_status="❌ Много"
+        fi
+        echo "| Flake8 | $flake8_errors ошибок | $flake8_status | Стиль и простые ошибки |" >> $GITHUB_STEP_SUMMARY
+    
+        # Ruff count
+        ruff_output=$(ruff check $files 2>&1 | grep -v "^warning:")
+        ruff_errors=$(echo "$ruff_output" | grep -i "found" | grep -oE '[0-9]+' | head -1)
+        
+        if [ -z "$ruff_errors" ]; then
+            ruff_errors="0"
+        fi
+
+        # Время выполнения Ruff
+        ruff_time=$( { time ruff check $files --quiet >/dev/null 2>&1; } 2>&1 | grep real | awk '{print $2}' )
+        
+        if [ "$ruff_errors" -eq 0 ]; then
+          ruff_status="✅ Отлично"
+        elif [ "$ruff_errors" -le 5 ]; then
+          ruff_status="⚠️ Средне"
+        else
+          ruff_status="❌ Много"
+        fi
+       
+        echo "| Ruff ⚡ | $ruff_errors ошибок | $ruff_status | Мгновенно ($ruff_time) |" >> $GITHUB_STEP_SUMMARY
+
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📊 Сводка по качеству кода" >> $GITHUB_STEP_SUMMARY
+        
+        # Рекомендации на основе результатов
+        echo "### 💡 Рекомендации" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$ruff_errors" -gt 0 ]; then
+          echo "- 🔧 **Исправьте ошибки с помощью Ruff:**" >> $GITHUB_STEP_SUMMARY
+          echo '  ```bash' >> $GITHUB_STEP_SUMMARY
+          echo '  # Автоисправление большинства проблем' >> $GITHUB_STEP_SUMMARY
+          echo '  ruff check --fix .' >> $GITHUB_STEP_SUMMARY
+          echo '  ```' >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "$flake8_errors" -gt "$ruff_errors" ]; then
+          echo "- 📝 **Flake8 нашел дополнительные ошибки стиля**" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ ! "$pylint_score" = "N/A" ] && [ "$(echo "$pylint_score < 7.0" | bc -l 2>/dev/null || echo 0)" -eq 1 ]; then
+          echo "- 🎯 **Улучшите архитектуру кода (Pylint score < 7.0)**" >> $GITHUB_STEP_SUMMARY
+        fi
+        
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "*Для детального отчета смотрите разделы выше*" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "### 📚 Полезные ссылки" >> $GITHUB_STEP_SUMMARY
+        echo "- [Ruff Documentation](https://docs.astral.sh/ruff/)" >> $GITHUB_STEP_SUMMARY
+        echo "- [PEP 8 Style Guide](https://peps.python.org/pep-0008/)" >> $GITHUB_STEP_SUMMARY
+        echo "- [Pylint Tutorial](https://pylint.pycqa.org/en/latest/tutorial.html)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 💡 Рекомендации по улучшению" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "1. **Исправьте ошибки с помощью Ruff:**" >> $GITHUB_STEP_SUMMARY
-        echo '   ```bash' >> $GITHUB_STEP_SUMMARY
-        echo '   ruff check --fix .' >> $GITHUB_STEP_SUMMARY
-        echo '   ```' >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "2. **Следуйте PEP 8:** Используйте 4 пробела для отступов, максимум 79 символов в строке" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "3. **Добавляйте комментарии к сложным алгоритмам**" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "*Качество кода влияет на итоговую оценку*" >> $GITHUB_STEP_SUMMARY
+        echo "*Примечание учащимся:*" >> $GITHUB_STEP_SUMMARY
+        echo "*Проверка качества кода может повлиять на твою оценку.*" >> $GITHUB_STEP_SUMMARY
+        echo "*Используйте ее, чтобы улучшить свои навыки программирования!*" >> $GITHUB_STEP_SUMMARY
