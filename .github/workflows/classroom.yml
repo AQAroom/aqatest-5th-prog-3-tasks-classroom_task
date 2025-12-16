@@ -90,7 +90,66 @@ jobs:
           task2_aggregated.txt
           task3_aggregated.txt
         retention-days: 1
-    
+
+    - name: Debug Extracted Results
+      run: |
+        echo "=== ДЕТАЛЬНАЯ ПРОВЕРКА АГРЕГИРОВАННЫХ РЕЗУЛЬТАТОВ ==="
+        
+        echo ""
+        echo "1. Содержимое файлов:"
+        for file in ./aggregated/*.txt; do
+          echo ""
+          echo "Файл: $file"
+          echo "Размер: $(wc -c < "$file") байт"
+          cat "$file"
+        done
+        
+        echo ""
+        echo "2. Извлекаем AGGREGATED_RESULT для каждой задачи:"
+        
+        # Задача 1
+        TASK1_RAW=$(grep -oP 'AGGREGATED_RESULT=\K.+' ./aggregated/task1_aggregated.txt 2>/dev/null || echo "NOT_FOUND")
+        echo "TASK1 raw (первые 100 символов): ${TASK1_RAW:0:100}..."
+        echo "Длина TASK1: ${#TASK1_RAW}"
+        
+        # Задача 2
+        TASK2_RAW=$(grep -oP 'AGGREGATED_RESULT=\K.+' ./aggregated/task2_aggregated.txt 2>/dev/null || echo "NOT_FOUND")
+        echo "TASK2 raw (первые 100 символов): ${TASK2_RAW:0:100}..."
+        echo "Длина TASK2: ${#TASK2_RAW}"
+        
+        # Задача 3
+        TASK3_RAW=$(grep -oP 'AGGREGATED_RESULT=\K.+' ./aggregated/task3_aggregated.txt 2>/dev/null || echo "NOT_FOUND")
+        echo "TASK3 raw (первые 100 символов): ${TASK3_RAW:0:100}..."
+        echo "Длина TASK3: ${#TASK3_RAW}"
+        
+        echo ""
+        echo "3. Пробуем декодировать и проверить JSON:"
+        
+        # Функция проверки JSON
+        check_json() {
+          local encoded=$1
+          local name=$2
+          
+          if [ "$encoded" = "NOT_FOUND" ] || [ -z "$encoded" ]; then
+            echo "❌ $name: Нет данных"
+            return
+          fi
+          
+          echo -n "$encoded" | base64 -d 2>/dev/null | python3 -c "
+    import sys, json
+    try:
+        data = json.load(sys.stdin)
+        print(f'✅ $name: Valid JSON, score: {data.get(\"tests\", [{}])[0].get(\"score\", \"N/A\")}/{data.get(\"max_score\", \"N/A\")}')
+        print(f'   Structure: {list(data.keys())}')
+    except Exception as e:
+        print(f'❌ $name: Invalid JSON: {e}')
+    " 2>/dev/null || echo "❌ $name: Decoding failed"
+        }
+        
+        check_json "$TASK1_RAW" "Task 1"
+        check_json "$TASK2_RAW" "Task 2"
+        check_json "$TASK3_RAW" "Task 3"
+
     # ============ ПАРСИНГ БАЛЛОВ ДЛЯ ОТЧЕТА ============
     - name: Parse Scores for Report
       id: parse_scores
