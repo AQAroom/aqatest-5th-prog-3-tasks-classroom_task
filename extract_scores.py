@@ -4,21 +4,30 @@ import base64
 
 def extract_score(encoded_result):
     """Извлекает баллы из base64 закодированного результата"""
-    if not encoded_result:
+    if not encoded_result or encoded_result == 'null':
+        print(f"Empty or null result: {encoded_result}")
         return 0
     
     try:
         decoded = base64.b64decode(encoded_result).decode('utf-8')
+        print(f"Decoded result: {decoded}")
         data = json.loads(decoded)
         
         # Проверяем разные форматы результатов
         if 'tests' in data and len(data['tests']) > 0:
-            return int(data['tests'][0].get('score', 0))
+            score = int(data['tests'][0].get('score', 0))
+            print(f"Score from tests[0]: {score}")
+            return score
         elif 'score' in data:
-            return int(data['score'])
+            score = int(data['score'])
+            print(f"Score from score field: {score}")
+            return score
         elif 'result' in data and 'score' in data['result']:
-            return int(data['result']['score'])
+            score = int(data['result']['score'])
+            print(f"Score from result.score: {score}")
+            return score
         else:
+            print(f"Unknown data format: {data}")
             return 0
     except Exception as e:
         print(f"Error extracting score: {e}", file=sys.stderr)
@@ -26,6 +35,7 @@ def extract_score(encoded_result):
 
 if __name__ == "__main__":
     task = sys.argv[1]
+    print(f"Processing task: {task}")
     
     # Получаем результаты из переменных окружения
     if task == "1":
@@ -33,9 +43,15 @@ if __name__ == "__main__":
         sub_result = sys.argv[3]
         div_zero_result = sys.argv[4]
         
+        print(f"Addition result: {add_result[:50]}..." if add_result and len(add_result) > 50 else f"Addition result: {add_result}")
+        print(f"Subtraction result: {sub_result[:50]}..." if sub_result and len(sub_result) > 50 else f"Subtraction result: {sub_result}")
+        print(f"Division by zero result: {div_zero_result[:50]}..." if div_zero_result and len(div_zero_result) > 50 else f"Division by zero result: {div_zero_result}")
+        
         add_score = extract_score(add_result)
         sub_score = extract_score(sub_result)
         div_zero_score = extract_score(div_zero_result)
+        
+        print(f"Scores: addition={add_score}, subtraction={sub_score}, division_by_zero={div_zero_score}")
         
         total = add_score + sub_score + div_zero_score
         print(f"TASK1_TOTAL={total}")
