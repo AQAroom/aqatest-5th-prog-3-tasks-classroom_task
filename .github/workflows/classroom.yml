@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   # JOB: ОЦЕНКА ЗАДАНИЙ (3 параллельных проверки)
-  grade-tasks:
+  run-autograding-tests:
     name: Оценивание всех задач
     runs-on: ubuntu-latest
     if: github.actor != 'github-classroom[bot]'
@@ -205,52 +205,35 @@ jobs:
         path: ./artifacts
         pattern: score-task-*
         merge-multiple: true
-    
+
     - name: Calculate Total Scores
       id: calculate
       run: |
-        # Инициализируем баллы
+        # Инициализируем
         TASK1_SCORE=0
         TASK2_SCORE=0
         TASK3_SCORE=0
         
-        # Парсим баллы из артефактов
+        # Читаем баллы из файлов
         for file in $(find ./artifacts -name "task_score.txt"); do
-          while IFS= read -r line || [[ -n "$line" ]]; do
-            if [[ "$line" == TASK_SCORE=* ]]; then
-              score="${line#TASK_SCORE=}"
-              
-              if [[ "$file" == *"task-1"* ]]; then
-                TASK1_SCORE="$score"
-              elif [[ "$file" == *"task-2"* ]]; then
-                TASK2_SCORE="$score"
-              elif [[ "$file" == *"task-3"* ]]; then
-                TASK3_SCORE="$score"
-              fi
-            fi
-          done < "$file"
+          score=$(cat "$file" | grep "TASK_SCORE=" | cut -d'=' -f2)
+          score=${score:-0}
+          
+          if [[ "$file" == *"task-1"* ]]; then
+            TASK1_SCORE=$score
+          elif [[ "$file" == *"task-2"* ]]; then
+            TASK2_SCORE=$score
+          elif [[ "$file" == *"task-3"* ]]; then
+            TASK3_SCORE=$score
+          fi
         done
         
-        # Проверяем файлы еще раз (на всякий случай)
-        if [ -f "task_01.py" ] && [ "$TASK1_SCORE" -eq 0 ]; then
-          TASK1_SCORE=10
+        # Если Task 1 прошел все 3 теста по 10 баллов каждый, должно быть 30
+        if [ "$TASK1_SCORE" -lt 30 ] && [ -f "task_01.py" ]; then
+          # Проверяем, может быть студент сдал не все тесты
+          # Но если файл есть, даем минимум 10
+          TASK1_SCORE=$((TASK1_SCORE > 0 ? TASK1_SCORE : 10))
         fi
-        
-        if [ -f "task_02.py" ] && [ "$TASK2_SCORE" -eq 0 ]; then
-          TASK2_SCORE=10
-        fi
-        
-        if [ -f "task_03.py" ] && [ "$TASK3_SCORE" -eq 0 ]; then
-          TASK3_SCORE=10
-        fi
-        
-        # Максимальные баллы
-        TASK1_MAX=30
-        TASK2_MAX=40
-        TASK3_MAX=40
-        
-        TOTAL_SCORE=$((TASK1_SCORE + TASK2_SCORE + TASK3_SCORE))
-        MAX_SCORE=$((TASK1_MAX + TASK2_MAX + TASK3_MAX))
         
         echo "Final scores: Task1=$TASK1_SCORE, Task2=$TASK2_SCORE, Task3=$TASK3_SCORE"
         
@@ -258,9 +241,9 @@ jobs:
         echo "task1_score=$TASK1_SCORE" >> $GITHUB_OUTPUT
         echo "task2_score=$TASK2_SCORE" >> $GITHUB_OUTPUT
         echo "task3_score=$TASK3_SCORE" >> $GITHUB_OUTPUT
-        echo "total_score=$TOTAL_SCORE" >> $GITHUB_OUTPUT
-        echo "max_score=$MAX_SCORE" >> $GITHUB_OUTPUT
-    
+        echo "total_score=$((TASK1_SCORE + TASK2_SCORE + TASK3_SCORE))" >> $GITHUB_OUTPUT
+        echo "max_score=110" >> $GITHUB_OUTPUT
+
     - name: Generate Final Summary
       run: |
         TASK1_SCORE=${{ steps.calculate.outputs.task1_score || 0 }}
