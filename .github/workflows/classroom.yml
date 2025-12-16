@@ -181,9 +181,20 @@ jobs:
             "${{ steps.task3_fib10.outputs.result }}" > scores.txt
         fi
         
-        # Загружаем результаты в переменные
+        # Загружаем результаты в переменные (без source для безопасности)
         if [ -f scores.txt ]; then
-          source scores.txt
+          echo "Content of scores.txt:"
+          cat scores.txt
+          
+          # Извлекаем только TASK*_TOTAL значения
+          while IFS= read -r line; do
+            if [[ "$line" == TASK*_TOTAL=* ]]; then
+              echo "$line"
+              # Сохраняем в переменные окружения
+              echo "${line}" >> $GITHUB_ENV
+            fi
+          done < scores.txt
+          
           echo "Scores extracted for task ${{ matrix.task }}"
         else
           echo "No scores file created"
@@ -222,16 +233,27 @@ jobs:
         TASK2_DETAILS=""
         TASK3_DETAILS=""
         
-        # Парсим все файлы scores.txt
+        # Парсим все файлы scores.txt БЕЗ eval
         for file in $(find ./artifacts -name "scores.txt"); do
           echo "Processing file: $file"
-          while IFS= read -r line; do
-            if [[ "$line" == TASK1_* ]]; then
-              eval "$line"
-            elif [[ "$line" == TASK2_* ]]; then
-              eval "$line"
-            elif [[ "$line" == TASK3_* ]]; then
-              eval "$line"
+          
+          # Используем безопасное чтение с фильтрацией
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            if [[ "$line" =~ ^TASK1_TOTAL=([0-9]+)$ ]]; then
+              TASK1_SCORE="${BASH_REMATCH[1]}"
+              echo "Found TASK1_SCORE: $TASK1_SCORE"
+            elif [[ "$line" =~ ^TASK2_TOTAL=([0-9]+)$ ]]; then
+              TASK2_SCORE="${BASH_REMATCH[1]}"
+              echo "Found TASK2_SCORE: $TASK2_SCORE"
+            elif [[ "$line" =~ ^TASK3_TOTAL=([0-9]+)$ ]]; then
+              TASK3_SCORE="${BASH_REMATCH[1]}"
+              echo "Found TASK3_SCORE: $TASK3_SCORE"
+            elif [[ "$line" =~ ^TASK1_DETAILS=(.+)$ ]]; then
+              TASK1_DETAILS="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^TASK2_DETAILS=(.+)$ ]]; then
+              TASK2_DETAILS="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^TASK3_DETAILS=(.+)$ ]]; then
+              TASK3_DETAILS="${BASH_REMATCH[1]}"
             fi
           done < "$file"
         done
@@ -259,20 +281,51 @@ jobs:
         echo "total_score=$TOTAL_SCORE" >> $GITHUB_OUTPUT
         echo "max_score=$MAX_SCORE" >> $GITHUB_OUTPUT
         
-        # Сохраняем в файл
-        echo "TASK1_SCORE=$TASK1_SCORE" > aggregated_scores.txt
-        echo "TASK2_SCORE=$TASK2_SCORE" >> aggregated_scores.txt
-        echo "TASK3_SCORE=$TASK3_SCORE" >> aggregated_scores.txt
-        echo "TOTAL_SCORE=$TOTAL_SCORE" >> aggregated_scores.txt
-        echo "MAX_SCORE=$MAX_SCORE" >> aggregated_scores.txt
-        echo "TASK1_DETAILS=$TASK1_DETAILS" >> aggregated_scores.txt
-        echo "TASK2_DETAILS=$TASK2_DETAILS" >> aggregated_scores.txt
-        echo "TASK3_DETAILS=$TASK3_DETAILS" >> aggregated_scores.txt
+        # Сохраняем в файл (безопасно)
+        {
+          echo "TASK1_SCORE=$TASK1_SCORE"
+          echo "TASK2_SCORE=$TASK2_SCORE"
+          echo "TASK3_SCORE=$TASK3_SCORE"
+          echo "TOTAL_SCORE=$TOTAL_SCORE"
+          echo "MAX_SCORE=$MAX_SCORE"
+          echo "TASK1_DETAILS=$TASK1_DETAILS"
+          echo "TASK2_DETAILS=$TASK2_DETAILS"
+          echo "TASK3_DETAILS=$TASK3_DETAILS"
+        } > aggregated_scores.txt
     
     - name: Generate Final Summary
       run: |
-        # Читаем агрегированные результаты
-        source aggregated_scores.txt
+        # Читаем агрегированные результаты безопасно
+        TASK1_SCORE=0
+        TASK2_SCORE=0
+        TASK3_SCORE=0
+        TOTAL_SCORE=0
+        MAX_SCORE=110
+        TASK1_DETAILS=""
+        TASK2_DETAILS=""
+        TASK3_DETAILS=""
+        
+        if [ -f aggregated_scores.txt ]; then
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            if [[ "$line" =~ ^TASK1_SCORE=([0-9]+)$ ]]; then
+              TASK1_SCORE="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^TASK2_SCORE=([0-9]+)$ ]]; then
+              TASK2_SCORE="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^TASK3_SCORE=([0-9]+)$ ]]; then
+              TASK3_SCORE="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^TOTAL_SCORE=([0-9]+)$ ]]; then
+              TOTAL_SCORE="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^MAX_SCORE=([0-9]+)$ ]]; then
+              MAX_SCORE="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^TASK1_DETAILS=(.+)$ ]]; then
+              TASK1_DETAILS="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^TASK2_DETAILS=(.+)$ ]]; then
+              TASK2_DETAILS="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^TASK3_DETAILS=(.+)$ ]]; then
+              TASK3_DETAILS="${BASH_REMATCH[1]}"
+            fi
+          done < aggregated_scores.txt
+        fi
         
         # Расчет процента
         if [ "$MAX_SCORE" -gt 0 ]; then
@@ -370,20 +423,25 @@ jobs:
     
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
+      env:
+        TASK1_SCORE: ${{ steps.aggregate.outputs.task1_score || 0 }}
+        TASK2_SCORE: ${{ steps.aggregate.outputs.task2_score || 0 }}
+        TASK3_SCORE: ${{ steps.aggregate.outputs.task3_score || 0 }}
+        TOTAL_SCORE: ${{ steps.aggregate.outputs.total_score || 0 }}
       with:
         runners: |
           {
             "task_01": {
               "run": "echo 'Task 1 completed'",
-              "points": ${{ steps.aggregate.outputs.task1_score || 0 }}
+              "points": ${{ env.TASK1_SCORE }}
             },
             "task_02": {
               "run": "echo 'Task 2 completed'",
-              "points": ${{ steps.aggregate.outputs.task2_score || 0 }}
+              "points": ${{ env.TASK2_SCORE }}
             },
             "task_03": {
               "run": "echo 'Task 3 completed'",
-              "points": ${{ steps.aggregate.outputs.task3_score || 0 }}
+              "points": ${{ env.TASK3_SCORE }}
             }
           }
         max-total-score: ${{ steps.aggregate.outputs.max_score || 110 }}
