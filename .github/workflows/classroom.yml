@@ -374,11 +374,7 @@ jobs:
 
     - name: Run code analysis
       run: |
-        echo "## 🔍 ДЕТАЛЬНЫЙ АНАЛИЗ КАЧЕСТВА КОДА" >> $GITHUB_STEP_SUMMARY
-        echo "### Используются линтеры: PyLint, Flake8, Ruff" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        # Запускаем Python скрипт анализа
+        # Только Python скрипт, без лишних echo
         python3 tools/code_analysis.py >> $GITHUB_STEP_SUMMARY
         
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -391,6 +387,6 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "2. **Следуйте PEP 8:** 4 пробела для отступов, максимум 79 символов в строке" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "3. **Добавляйте комментарии к сложным функциям**" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Проверяйте код перед отправкой**" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "*Качество кода влияет на итоговую оценку!*" >> $GITHUB_STEP_SUMMARY
+        echo "*Качество кода учитывается при оценке!*" >> $GITHUB_STEP_SUMMARY
