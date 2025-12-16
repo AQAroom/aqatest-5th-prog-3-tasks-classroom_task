@@ -16,7 +16,8 @@ def analyze_task_file(filename):
         'ruff_errors': 0,
         'syntax_ok': False,
         'ruff_output': '',
-        'flake8_output': ''
+        'flake8_output': '',
+        'ruff_details': []
     }
     
     # Проверка синтаксиса
@@ -47,24 +48,54 @@ def analyze_task_file(filename):
     # Flake8 ошибки
     try:
         flake8_result = subprocess.run(
-            ['flake8', filename],
+            ['flake8', filename, '--statistics'],
             capture_output=True,
             text=True
         )
         results['flake8_output'] = flake8_result.stdout
-        results['flake8_errors'] = len(flake8_result.stdout.strip().split('\n')) if flake8_result.stdout.strip() else 0
+        if flake8_result.stdout.strip():
+            lines = [l for l in flake8_result.stdout.split('\n') if filename in l]
+            results['flake8_errors'] = len(lines)
+            results['flake8_details'] = lines[:10]  # Первые 10 ошибок
+        else:
+            results['flake8_errors'] = 0
     except Exception as e:
         results['flake8_error'] = str(e)
     
-    # Ruff ошибки
+    # Ruff ошибки - более детальный анализ
     try:
+        # Запускаем Ruff с детальным выводом
         ruff_result = subprocess.run(
-            ['ruff', 'check', filename],
+            ['ruff', 'check', filename, '--output-format', 'concise'],
             capture_output=True,
             text=True
         )
-        results['ruff_output'] = ruff_result.stdout
-        results['ruff_errors'] = len(ruff_result.stdout.strip().split('\n')) if ruff_result.stdout.strip() else 0
+        results['ruff_output'] = ruff_result.stdout + ruff_result.stderr
+        
+        # Парсим ошибки
+        error_lines = []
+        for line in results['ruff_output'].split('\n'):
+            if filename in line and ':' in line:
+                error_lines.append(line.strip())
+        
+        results['ruff_errors'] = len(error_lines)
+        results['ruff_details'] = error_lines[:10]  # Первые 10 ошибок
+        
+        # Если Ruff говорит "All checks passed", но мы считаем ошибки
+        if "All checks passed" in results['ruff_output'] and results['ruff_errors'] == 0:
+            # Перезапускаем с другим форматом
+            ruff_result2 = subprocess.run(
+                ['ruff', 'check', filename, '--statistics'],
+                capture_output=True,
+                text=True
+            )
+            if "found" in ruff_result2.stdout:
+                # Парсим число найденных ошибок
+                import re
+                match = re.search(r'found (\d+)', ruff_result2.stdout)
+                if match:
+                    results['ruff_errors'] = int(match.group(1))
+                    
     except Exception as e:
         results['ruff_error'] = str(e)
     
@@ -128,28 +159,46 @@ def main():
         
         print(f"**Синтаксис:** {'✅ Корректен' if result['syntax_ok'] else '❌ Ошибка'}")
         if not result['syntax_ok'] and 'syntax_error' in result:
-            print(f"```\n{result['syntax_error']}\n```")
+            print(f"```\n{result['syntax_error'][:200]}\n```")
         print("")
         
         print(f"**PyLint оценка:** {result['pylint_score']}/10")
         print("")
         
-        if result['flake8_errors'] > 0:
+        if result['flake8_errors'] > 0 and 'flake8_details' in result:
             print(f"**Flake8 ошибки ({result['flake8_errors']}):**")
             print("```")
-            print(result['flake8_output'])
+            for error in result['flake8_details']:
+                print(error)
+            if result['flake8_errors'] > 10:
+                print(f"... и еще {result['flake8_errors'] - 10} ошибок")
+            print("```")
+        elif result['flake8_errors'] > 0:
+            print(f"**Flake8:** ❌ {result['flake8_errors']} ошибок")
+            print("```")
+            print(result['flake8_output'][:500])
             print("```")
         else:
             print("**Flake8:** ✅ Нет ошибок")
         print("")
         
-        if result['ruff_errors'] > 0:
+        if result['ruff_errors'] > 0 and result['ruff_details']:
             print(f"**Ruff ошибки ({result['ruff_errors']}):**")
             print("```")
-            print(result['ruff_output'])
+            for error in result['ruff_details']:
+                print(error)
+            if result['ruff_errors'] > 10:
+                print(f"... и еще {result['ruff_errors'] - 10} ошибок")
             print("```")
+        elif result['ruff_errors'] > 0:
+            print(f"**Ruff:** ❌ {result['ruff_errors']} ошибок")
+            print("```")
+            print(result['ruff_output'][:500])
+            print("```")
+        elif "All checks passed" in result['ruff_output']:
+            print("**Ruff:** ✅ Все проверки пройдены")
         else:
-            print("**Ruff:** ✅ Нет ошибок")
+            print(f"**Ruff:** ❓ {result['ruff_output'][:100]}")
         print("")
         
         print("---")
