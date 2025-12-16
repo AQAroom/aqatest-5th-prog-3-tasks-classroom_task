@@ -192,7 +192,7 @@ jobs:
   generate-final-report:
     name: Итоговая сводка
     runs-on: ubuntu-latest
-    needs: grade-tasks
+    needs: run-autograding-tests
     if: always()
     
     steps:
