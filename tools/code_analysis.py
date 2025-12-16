@@ -53,18 +53,44 @@ def analyze_task_file(filename):
     # Ruff - используем --exit-zero чтобы не падать на ошибках
     try:
         ruff_result = subprocess.run(
-            ['ruff', 'check', filename, '--exit-zero'],
+            ['ruff', 'check', filename, '--exit-zero', '--output-format', 'text'],
             capture_output=True, text=True
         )
-        results['ruff_output'] = ruff_result.stdout
+        results['ruff_output'] = ruff_result.stdout + ruff_result.stderr
         
-        # Считаем строки с ошибками
-        lines = [l for l in ruff_result.stdout.split('\n') if l.strip() and ':' in l and filename in l]
-        results['ruff_errors'] = len(lines)
-        results['ruff_details'] = lines[:10]
+        # Парсим вывод правильно
+        lines = ruff_result.stdout.split('\n')
+        error_count = 0
         
-    except:
-        pass
+        # Считаем строки с ошибками (формат: filename:line:col: code message)
+        for line in lines:
+            if filename in line and ':' in line:
+                parts = line.split(':')
+                if len(parts) >= 4:
+                    error_count += 1
+        
+        results['ruff_errors'] = error_count
+        results['ruff_details'] = [l for l in lines if filename in l][:10]
+        
+    except Exception as e:
+        print(f"ERROR running ruff for {filename}: {e}", file=sys.stderr)
+        results['ruff_output'] = f"Error: {e}"
+        results['ruff_errors'] = 0
+    
+    # try:
+    #     ruff_result = subprocess.run(
+    #         ['ruff', 'check', filename, '--exit-zero'],
+    #         capture_output=True, text=True
+    #     )
+    #     results['ruff_output'] = ruff_result.stdout
+        
+    #     # Считаем строки с ошибками
+    #     lines = [l for l in ruff_result.stdout.split('\n') if l.strip() and ':' in l and filename in l]
+    #     results['ruff_errors'] = len(lines)
+    #     results['ruff_details'] = lines[:10]
+        
+    # except:
+    #     pass
     
     return results
 
