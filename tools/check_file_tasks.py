@@ -1,4 +1,5 @@
-import base64, json, sys
+#!/usr/bin/env python3
+import base64, json, sys, re, os
 
 def check_file(filename):
     try:
@@ -6,7 +7,6 @@ def check_file(filename):
             content = f.read()
         
         # Ищем AGGREGATED_RESULT
-        import re
         match = re.search(r'AGGREGATED_RESULT=(.+)', content)
         if not match:
             print(f'❌ {filename}: Не найден AGGREGATED_RESULT')
@@ -35,10 +35,11 @@ def check_file(filename):
         print(f'❌ {filename}: Файл не найден')
         return None
 
-# Проверяем все файлы
-print()
-files_to_check = ['task1_aggregated.txt', 'task2_aggregated.txt', 'task3_aggregated.txt']
-results = {}
-
-for file in files_to_check:
-    results[file] = check_file(file)
+if __name__ == "__main__":
+    files_to_check = ['task1_aggregated.txt', 'task2_aggregated.txt', 'task3_aggregated.txt']
+    
+    for file in files_to_check:
+        if os.path.exists(file):
+            check_file(file)
+        else:
+            print(f'❌ {file}: Файл не существует')
