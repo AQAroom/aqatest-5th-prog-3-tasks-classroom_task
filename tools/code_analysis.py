@@ -1,6 +1,7 @@
 # tools/code_analysis.py
 import subprocess
 import os
+import sys
 
 def analyze_task_file(filename):
     """Анализирует файл задачи и возвращает результаты"""
@@ -13,7 +14,9 @@ def analyze_task_file(filename):
         'pylint_score': 0,
         'flake8_errors': 0,
         'ruff_errors': 0,
-        'syntax_ok': False
+        'syntax_ok': False,
+        'ruff_output': '',
+        'flake8_output': ''
     }
     
     # Проверка синтаксиса
@@ -21,8 +24,9 @@ def analyze_task_file(filename):
         subprocess.run(['python3', '-m', 'py_compile', filename], 
                       capture_output=True, check=True)
         results['syntax_ok'] = True
-    except:
+    except subprocess.CalledProcessError as e:
         results['syntax_ok'] = False
+        results['syntax_error'] = e.stderr.decode()
     
     # PyLint оценка
     try:
@@ -37,20 +41,20 @@ def analyze_task_file(filename):
                 score = line.split('rated at ')[1].split('/')[0]
                 results['pylint_score'] = float(score)
                 break
-    except:
-        pass
+    except Exception as e:
+        results['pylint_error'] = str(e)
     
     # Flake8 ошибки
     try:
         flake8_result = subprocess.run(
-            ['flake8', filename, '--count'],
+            ['flake8', filename],
             capture_output=True,
             text=True
         )
-        if flake8_result.stdout.strip().isdigit():
-            results['flake8_errors'] = int(flake8_result.stdout.strip())
-    except:
-        pass
+        results['flake8_output'] = flake8_result.stdout
+        results['flake8_errors'] = len(flake8_result.stdout.strip().split('\n')) if flake8_result.stdout.strip() else 0
+    except Exception as e:
+        results['flake8_error'] = str(e)
     
     # Ruff ошибки
     try:
@@ -59,16 +63,14 @@ def analyze_task_file(filename):
             capture_output=True,
             text=True
         )
-        # Считаем строки с ошибками
-        error_lines = [line for line in ruff_result.stdout.split('\n') 
-                      if filename in line and ':' in line]
-        results['ruff_errors'] = len(error_lines)
-    except:
-        pass
+        results['ruff_output'] = ruff_result.stdout
+        results['ruff_errors'] = len(ruff_result.stdout.strip().split('\n')) if ruff_result.stdout.strip() else 0
+    except Exception as e:
+        results['ruff_error'] = str(e)
     
     return results
 
-def code_check():
+def main():
     """Основная функция анализа"""
     task_files = ['task_01.py', 'task_02.py', 'task_03.py']
     
@@ -125,45 +127,33 @@ def code_check():
         print("")
         
         print(f"**Синтаксис:** {'✅ Корректен' if result['syntax_ok'] else '❌ Ошибка'}")
+        if not result['syntax_ok'] and 'syntax_error' in result:
+            print(f"```\n{result['syntax_error']}\n```")
         print("")
         
-        print("#### 🐍 PyLint (оценка качества):")
-        print("```")
-        try:
-            pylint_result = subprocess.run(
-                ['pylint', task_file, '--exit-zero', '--score=yes'],
-                capture_output=True,
-                text=True
-            )
-            lines = pylint_result.stdout.strip().split('\n')
-            for line in lines[-5:]:
-                print(line)
-        except:
-            print("Не удалось выполнить PyLint")
-        print("```")
+        print(f"**PyLint оценка:** {result['pylint_score']}/10")
         print("")
         
-        print("#### ⚡ Ruff (быстрые проверки):")
-        print("```")
-        try:
-            ruff_result = subprocess.run(
-                ['ruff', 'check', task_file],
-                capture_output=True,
-                text=True
-            )
-            if ruff_result.stdout.strip():
-                print(ruff_result.stdout[:300])
-                if len(ruff_result.stdout) > 300:
-                    print("... (вывод обрезан)")
-            else:
-                print("✅ Нет ошибок")
-        except:
-            print("Не удалось выполнить Ruff")
-        print("```")
+        if result['flake8_errors'] > 0:
+            print(f"**Flake8 ошибки ({result['flake8_errors']}):**")
+            print("```")
+            print(result['flake8_output'])
+            print("```")
+        else:
+            print("**Flake8:** ✅ Нет ошибок")
+        print("")
+        
+        if result['ruff_errors'] > 0:
+            print(f"**Ruff ошибки ({result['ruff_errors']}):**")
+            print("```")
+            print(result['ruff_output'])
+            print("```")
+        else:
+            print("**Ruff:** ✅ Нет ошибок")
         print("")
         
         print("---")
         print("")
 
 if __name__ == "__main__":
-    code_check()
+    main()
