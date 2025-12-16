@@ -1,7 +1,17 @@
+#!/usr/bin/env python3
 # Python скрипт для проверки JSON check_json.py
-import sys, json, base64
+import sys
+import json
+import base64
 
-def check_json(encoded, name):
+def main():
+    if len(sys.argv) < 3:
+        print("Usage: python3 check_json.py <base64_string> <name>")
+        sys.exit(1)
+    
+    encoded = sys.argv[1]
+    name = sys.argv[2]
+    
     if not encoded or encoded == "NOT_FOUND":
         print(f"❌ {name}: Нет данных")
         return
@@ -17,6 +27,4 @@ def check_json(encoded, name):
         print(f'❌ {name}: Invalid JSON: {e}')
 
 if __name__ == "__main__":
-    encoded = sys.argv[1]
-    name = sys.argv[2]
-    check_json(encoded, name)
+    main()
