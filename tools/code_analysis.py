@@ -1,4 +1,4 @@
-# tools/code_analysis.py
+# tools/code_analysis.py - исправленная версия для Ruff
 import subprocess
 import os
 import sys
@@ -46,10 +46,10 @@ def analyze_task_file(filename):
     except Exception as e:
         results['pylint_error'] = str(e)
     
-    # Flake8 ошибки - включаем все правила
+    # Flake8 ошибки
     try:
         flake8_result = subprocess.run(
-            ['flake8', filename, '--max-line-length=79', '--extend-ignore=E501'],
+            ['flake8', filename, '--max-line-length=79'],
             capture_output=True,
             text=True
         )
@@ -57,47 +57,40 @@ def analyze_task_file(filename):
         if flake8_result.stdout.strip():
             lines = [l.strip() for l in flake8_result.stdout.split('\n') if l.strip()]
             results['flake8_errors'] = len(lines)
-            results['flake8_details'] = lines[:15]  # Первые 15 ошибок
+            results['flake8_details'] = lines[:15]
         else:
             results['flake8_errors'] = 0
     except Exception as e:
         results['flake8_error'] = str(e)
     
-    # Ruff ошибки - используем полный набор правил
+    # Ruff ошибки - правильный парсинг
     try:
-        # Запускаем Ruff с максимальной строгостью
+        # Запускаем Ruff с подробным выводом
         ruff_result = subprocess.run(
-            ['ruff', 'check', filename, '--select=ALL', '--ignore=D203,D211,D212,D213,E501'],
+            ['ruff', 'check', filename, '--output-format', 'full'],
             capture_output=True,
             text=True
         )
-        results['ruff_output'] = ruff_result.stdout + ruff_result.stderr
+        results['ruff_output'] = ruff_result.stdout
         
-        # Парсим ошибки более аккуратно
+        # Парсим вывод Ruff правильно
         error_lines = []
         for line in results['ruff_output'].split('\n'):
             line = line.strip()
-            if line and not line.startswith('warning:') and filename in line:
-                # Убираем путь к файлу для чистоты вывода
-                clean_line = line.split(filename + ':', 1)[-1].strip()
-                if clean_line:
-                    error_lines.append(f"{filename}:{clean_line}")
+            if line and ':' in line and not line.startswith('Found'):
+                # Пример строки: "task_01.py:5:5: E222 Multiple spaces after operator"
+                if filename in line:
+                    error_lines.append(line)
         
         results['ruff_errors'] = len(error_lines)
-        results['ruff_details'] = error_lines[:15]  # Первые 15 ошибок
+        results['ruff_details'] = error_lines[:15]
         
-        # Если Ruff ничего не нашел, но Flake8 нашел, запускаем Ruff с более строгими настройками
-        if results['ruff_errors'] == 0 and results['flake8_errors'] > 0:
-            ruff_result2 = subprocess.run(
-                ['ruff', 'check', filename, '--select=E,W,F,C,B,A,COM,C4,ERA,ICN,INP,ISC,TID,Q,S,TCH,INT,I,N,PLE,PLW,TRY,RUF'],
-                capture_output=True,
-                text=True
-            )
-            if ruff_result2.stdout.strip():
-                lines = [l.strip() for l in ruff_result2.stdout.split('\n') if l.strip()]
-                results['ruff_errors'] = len(lines)
-                results['ruff_details'] = lines[:15]
-                results['ruff_output'] = ruff_result2.stdout
+        # Если Ruff не нашел ошибок, но хочет показать что-то
+        if not error_lines and results['ruff_output']:
+            # Проверяем, есть ли статистика
+            stats_match = re.search(r'Found (\d+) error', results['ruff_output'])
+            if stats_match:
+                results['ruff_errors'] = int(stats_match.group(1))
                 
     except Exception as e:
         results['ruff_error'] = str(e)
@@ -110,6 +103,7 @@ def main():
     task_files = ['task_01.py', 'task_02.py', 'task_03.py']
     
     print("## 🔍 ДЕТАЛЬНЫЙ АНАЛИЗ КАЧЕСТВА КОДА")
+    print("### Используются линтеры: PyLint, Flake8, Ruff")
     print("")
     
     # Сводная таблица
@@ -127,13 +121,13 @@ def main():
         
         # Определяем статус
         if not result['syntax_ok']:
-            status = "❌ Ошибка синтаксиса"
+            status = "❌ Синтаксис"
         elif result['pylint_score'] >= 9.0 and result['flake8_errors'] == 0 and result['ruff_errors'] == 0:
             status = "✅ Отлично"
-        elif result['pylint_score'] >= 7.0 and result['flake8_errors'] <= 5 and result['ruff_errors'] <= 5:
+        elif result['pylint_score'] >= 7.0 and result['flake8_errors'] <= 3 and result['ruff_errors'] <= 3:
             status = "⚠️ Средне"
         else:
-            status = "❌ Много ошибок"
+            status = "❌ Ошибки"
         
         print(f"| Задача {i} | `{task_file}` | "
               f"{'✅' if result['syntax_ok'] else '❌'} | "
@@ -200,22 +194,12 @@ def main():
             print("```")
         else:
             print("**✅ Ruff:** Нет ошибок")
-            if result['ruff_output'] and "All checks passed" not in result['ruff_output']:
+            if result['ruff_output']:
                 print("```")
                 print(result['ruff_output'][:200])
                 print("```")
         print("")
         
-        # Быстрые советы
-        print("**💡 Быстрые советы:**")
-        if result['flake8_errors'] > 0:
-            print(f"- Исправьте {result['flake8_errors']} ошибок Flake8 (см. выше)")
-        if result['ruff_errors'] > 0:
-            print(f"- Исправьте {result['ruff_errors']} ошибок Ruff (см. выше)")
-        if result['pylint_score'] < 8.0:
-            print(f"- Улучшите качество кода (PyLint оценка {result['pylint_score']:.1f}/10)")
-        
-        print("")
         print("---")
         print("")
 
