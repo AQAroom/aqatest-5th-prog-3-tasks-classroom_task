@@ -429,17 +429,4 @@ jobs:
       run: |
         # Только Python скрипт, без лишних echo
         python3 tools/code_analysis.py >> $GITHUB_STEP_SUMMARY
-        
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 💡 Рекомендации по улучшению:" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "1. **Используйте автоматическое исправление Ruff:**" >> $GITHUB_STEP_SUMMARY
-        echo '   ```bash' >> $GITHUB_STEP_SUMMARY
-        echo '   ruff check --fix .' >> $GITHUB_STEP_SUMMARY
-        echo '   ```' >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "2. **Следуйте PEP 8:** 4 пробела для отступов, максимум 79 символов в строке" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "3. **Проверяйте код перед отправкой**" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "*Качество кода учитывается при оценке!*" >> $GITHUB_STEP_SUMMARY
+
