@@ -9,8 +9,8 @@ permissions:
 
 jobs:
   # JOB 1: Запуск тестов и агрегация
-  run-and-aggregate-tests:
-    name: Запуск и агрегация тестов
+  run-autograding-tests:
+    name: Оценивание заданий
     runs-on: ubuntu-latest
     if: github.actor != 'github-classroom[bot]'
     
@@ -26,7 +26,6 @@ jobs:
     # ============ ЗАПУСК ТЕСТОВ ============
     # ============ ЗАДАЧА 1: КАЛЬКУЛЯТОР ============
     - name: "[TASK 1] Сложение"
-      if: matrix.task == 1
       id: task1_add
       uses: classroom-resources/autograding-io-grader@v1
       with:
@@ -42,7 +41,6 @@ jobs:
         max-score: 10
     
     - name: "[TASK 1] Вычитание"
-      if: matrix.task == 1
       id: task1_sub
       uses: classroom-resources/autograding-io-grader@v1
       with:
@@ -58,7 +56,6 @@ jobs:
         max-score: 10
     
     - name: "[TASK 1] Деление на ноль"
-      if: matrix.task == 1
       id: task1_div_zero
       uses: classroom-resources/autograding-io-grader@v1
       with:
@@ -75,8 +72,7 @@ jobs:
     
     # ============ ЗАДАЧА 2: ПАЛИНДРОМ ============
     - name: "[TASK 2] Простой палиндром"
-      if: matrix.task == 2
-      id: task2_text_en
+      id: task2_simple
       uses: classroom-resources/autograding-io-grader@v1
       with:
         test-name: "Задача 2: Простой палиндром"
@@ -88,7 +84,6 @@ jobs:
         max-score: 15
     
     - name: "[TASK 2] Не палиндром"
-      if: matrix.task == 2
       id: task2_not_palindrome
       uses: classroom-resources/autograding-io-grader@v1
       with:
@@ -101,13 +96,12 @@ jobs:
         max-score: 15
     
     - name: "[TASK 2] Пустая строка"
-      if: matrix.task == 2
-      id: task2_text_ru
+      id: task2_empty
       uses: classroom-resources/autograding-io-grader@v1
       with:
         test-name: "Задача 2: Пустая строка"
         command: python task_02.py
-        input: "арозаупаланалапуазора"
+        input: ""
         expected-output: 'True'
         comparison-method: exact
         timeout: 5
@@ -115,7 +109,6 @@ jobs:
     
     # ============ ЗАДАЧА 3: ФИБОНАЧЧИ ============
     - name: "[TASK 3] Fibonacci(0)"
-      if: matrix.task == 3
       id: task3_fib0
       uses: classroom-resources/autograding-io-grader@v1
       with:
@@ -128,7 +121,6 @@ jobs:
         max-score: 10
     
     - name: "[TASK 3] Fibonacci(1)"
-      if: matrix.task == 3
       id: task3_fib1
       uses: classroom-resources/autograding-io-grader@v1
       with:
@@ -141,7 +133,6 @@ jobs:
         max-score: 10
     
     - name: "[TASK 3] Fibonacci(10)"
-      if: matrix.task == 3
       id: task3_fib10
       uses: classroom-resources/autograding-io-grader@v1
       with:
@@ -154,7 +145,6 @@ jobs:
         max-score: 20
     
     # ============ АГРЕГАЦИЯ РЕЗУЛЬТАТОВ ============
-   # ============ АГРЕГАЦИЯ РЕЗУЛЬТАТОВ ============
     - name: Aggregate Task 1 Results
       id: aggregate_task1
       run: |
@@ -258,7 +248,7 @@ jobs:
   generate-final-report:
     name: Итоговый отчет и отправка
     runs-on: ubuntu-latest
-    needs: run-and-aggregate-tests
+    needs: run-autograding-tests
     if: always()
     
     steps:
