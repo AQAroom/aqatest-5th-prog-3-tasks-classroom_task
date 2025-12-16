@@ -170,36 +170,59 @@ jobs:
     #     echo "${{ steps.task1_add.outputs.result }}" | base64 -d
     #     echo ""
 
+    - name: Check if parser exists
+      run: |
+        echo "=== ПРОВЕРКА СКРИПТОВ ==="
+        if [ -f "tools/parse_scores.py" ]; then
+          echo "✅ parse_scores.py найден"
+          ls -la tools/
+        else
+          echo "❌ parse_scores.py НЕ найден!"
+          echo "Содержимое каталога tools:"
+          ls -la tools/ || echo "Каталог tools не существует"
+        fi
+
+    # ============ ПАРСИМ РЕАЛЬНЫЕ БАЛЛЫ ============
+    - name: Parse and Save Scores
+      if: always()
+      run: |
+        # Парсим ТОЛЬКО реальные результаты
+        echo "=== Парсинг результатов ==="
+        
+        if [ "${{ matrix.task }}" = "1" ]; then
+          python3 tools/parse_scores.py 1 \
+            "${{ steps.task1_add.outputs.result }}" \
+            "${{ steps.task1_sub.outputs.result }}" \
+            "${{ steps.task1_div_zero.outputs.result }}" > task1_score.txt
+          
+          echo "Задача 1 результат:"
+          cat task1_score.txt
+          
+        elif [ "${{ matrix.task }}" = "2" ]; then
+          python3 tools/parse_scores.py 2 \
+            "${{ steps.task2_simple.outputs.result }}" \
+            "${{ steps.task2_not_palindrome.outputs.result }}" \
+            "${{ steps.task2_empty.outputs.result }}" > task2_score.txt
+          
+          echo "Задача 2 результат:"
+          cat task2_score.txt
+          
+        elif [ "${{ matrix.task }}" = "3" ]; then
+          python3 tools/parse_scores.py 3 \
+            "${{ steps.task3_fib0.outputs.result }}" \
+            "${{ steps.task3_fib1.outputs.result }}" \
+            "${{ steps.task3_fib10.outputs.result }}" > task3_score.txt
+          
+          echo "Задача 3 результат:"
+          cat task3_score.txt
+        fi
+
     - name: Upload Parsed Scores
       uses: actions/upload-artifact@v4
       with:
         name: parsed-scores-task-${{ matrix.task }}
         path: task*_score.txt  # Загрузит все файлы результатов
         retention-days: 1
-
-    # ============ ПАРСИМ РЕАЛЬНЫЕ БАЛЛЫ ============
-    - name: Parse and Save Scores
-      run: |
-        # Парсим ТОЛЬКО реальные результаты
-        python3 tools/parse_scores.py 1 \
-          "${{ steps.task1_add.outputs.result }}" \
-          "${{ steps.task1_sub.outputs.result }}" \
-          "${{ steps.task1_div_zero.outputs.result }}" > task1_score.txt
-        
-        python3 tools/parse_scores.py 2 \
-          "${{ steps.task2_simple.outputs.result }}" \
-          "${{ steps.task2_not_palindrome.outputs.result }}" \
-          "${{ steps.task2_empty.outputs.result }}" > task2_score.txt
-        
-        python3 tools/parse_scores.py 3 \
-          "${{ steps.task3_fib0.outputs.result }}" \
-          "${{ steps.task3_fib1.outputs.result }}" \
-          "${{ steps.task3_fib10.outputs.result }}" > task3_score.txt
-        
-        echo "=== РЕЗУЛЬТАТЫ ==="
-        cat task1_score.txt
-        cat task2_score.txt
-        cat task3_score.txt
 
   # JOB: СБОРКА ИТОГОВОЙ СВОДКИ
   generate-final-report:
@@ -219,18 +242,57 @@ jobs:
         pattern: parsed-scores-*
         merge-multiple: true
     
+    - name: Debug Downloaded Files
+      run: |
+        echo "=== ПРОВЕРКА СКАЧАННЫХ ФАЙЛОВ ==="
+        echo "Содержимое каталога ./parsed_scores:"
+        ls -la ./parsed_scores/ || echo "Каталог не существует"
+        
+        echo ""
+        echo "Поиск файлов с результатами:"
+        find . -name "*score*.txt" -type f 2>/dev/null | while read file; do
+          echo "Файл: $file"
+          cat "$file" || echo "Не могу прочитать"
+          echo "---"
+        done
+    
     - name: Calculate Total Scores
       id: calculate
       run: |
-        # Читаем ТОЛЬКО из распарсенных файлов
-        TASK1=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task1_score.txt 2>/dev/null || echo "0")
-        TASK2=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task2_score.txt 2>/dev/null || echo "0")
-        TASK3=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task3_score.txt 2>/dev/null || echo "0")
-        # TASK1=$(grep -oP 'TASK_SCORE=\K\d+' task1_score.txt 2>/dev/null || echo "0")
-        # TASK2=$(grep -oP 'TASK_SCORE=\K\d+' task2_score.txt 2>/dev/null || echo "0")
-        # TASK3=$(grep -oP 'TASK_SCORE=\K\d+' task3_score.txt 2>/dev/null || echo "0")
+        echo "=== РАСЧЕТ БАЛЛОВ ==="
         
-        echo "Задача 1: $TASK1"
+        # Ищем файлы во всех возможных местах
+        TASK1=0
+        TASK2=0
+        TASK3=0
+        
+        # Вариант 1: в downloaded artifacts
+        if [ -f "./parsed_scores/task1_score.txt" ]; then
+          TASK1=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task1_score.txt 2>/dev/null || echo "0")
+          echo "Нашли task1_score.txt в artifacts: $TASK1"
+        fi
+        
+        if [ -f "./parsed_scores/task2_score.txt" ]; then
+          TASK2=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task2_score.txt 2>/dev/null || echo "0")
+          echo "Нашли task2_score.txt в artifacts: $TASK2"
+        fi
+        
+        if [ -f "./parsed_scores/task3_score.txt" ]; then
+          TASK3=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task3_score.txt 2>/dev/null || echo "0")
+          echo "Нашли task3_score.txt в artifacts: $TASK3"
+        fi
+        
+        # Вариант 2: прямо в корне (на всякий случай)
+        if [ -f "task1_score.txt" ]; then
+          SCORE=$(grep -oP 'TASK_SCORE=\K\d+' task1_score.txt 2>/dev/null || echo "0")
+          echo "Нашли task1_score.txt в корне: $SCORE"
+          TASK1=$SCORE
+        fi
+        
+        # Выводим результаты
+        echo ""
+        echo "ИТОГОВЫЕ БАЛЛЫ:"
+        echo "Задача 1: $TASK1 (должно быть 30 для пройденных тестов)"
         echo "Задача 2: $TASK2"
         echo "Задача 3: $TASK3"
         
@@ -238,7 +300,7 @@ jobs:
         echo "task2_score=$TASK2" >> $GITHUB_OUTPUT
         echo "task3_score=$TASK3" >> $GITHUB_OUTPUT
         echo "total_score=$(($TASK1 + $TASK2 + $TASK3))" >> $GITHUB_OUTPUT
-
+    
     - name: Generate Final Summary
       run: |
         TASK1_SCORE=${{ steps.calculate.outputs.task1_score || 0 }}
