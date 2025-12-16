@@ -1,30 +1,56 @@
 #!/usr/bin/env python3
-# Python скрипт для проверки JSON check_json.py
+# tools/check_json.py - работает через stdin или аргументы
 import sys
 import json
 import base64
 
-def main():
-    if len(sys.argv) < 3:
-        print("Usage: python3 check_json.py <base64_string> <name>")
-        sys.exit(1)
+def check_json(encoded=None, name="Unknown"):
+    """Проверяет JSON из base64 строки или stdin"""
+    if encoded is None:
+        # Читаем из stdin
+        encoded = sys.stdin.read().strip()
     
-    encoded = sys.argv[1]
-    name = sys.argv[2]
-    
-    if not encoded or encoded == "NOT_FOUND":
+    if not encoded or encoded.lower() in ("null", "undefined", "not_set"):
         print(f"❌ {name}: Нет данных")
-        return
+        return False
     
     try:
         decoded = base64.b64decode(encoded).decode('utf-8')
         data = json.loads(decoded)
-        score = data.get("tests", [{}])[0].get("score", "N/A")
-        max_score = data.get("max_score", "N/A")
-        print(f'✅ {name}: Valid JSON, score: {score}/{max_score}')
-        print(f'   Structure: {list(data.keys())}')
+        
+        print(f"✅ {name}: Валидный JSON")
+        print(f"   Статус: {data.get('status', 'unknown')}")
+        print(f"   Макс. баллы: {data.get('max_score', 'N/A')}")
+        
+        if 'tests' in data:
+            total_score = 0
+            for i, test in enumerate(data['tests'], 1):
+                score = test.get('score', 0)
+                total_score += score
+                print(f"   Тест {i}: {test.get('name', 'unnamed')} = {score} баллов")
+            print(f"   ИТОГО: {total_score} баллов")
+        elif 'score' in data:
+            print(f"   Баллы: {data.get('score', 0)}")
+        
+        return True
+        
     except Exception as e:
-        print(f'❌ {name}: Invalid JSON: {e}')
+        print(f'❌ {name}: Ошибка - {e}')
+        print(f"   Входные данные (первые 100): {encoded[:100]}...")
+        return False
+
+def main():
+    # Если есть аргументы, используем их
+    if len(sys.argv) >= 3:
+        encoded = sys.argv[1]
+        name = sys.argv[2]
+        check_json(encoded, name)
+    elif len(sys.argv) == 2:
+        # Только encoded, имя по умолчанию
+        check_json(sys.argv[1], "JSON Check")
+    else:
+        # Читаем из stdin
+        check_json(name="Stdin JSON")
 
 if __name__ == "__main__":
     main()
