@@ -422,7 +422,10 @@ jobs:
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
       with:
-        runners: task_01: ${{ steps.aggregate.outputs.task1_score || 0 }}, task_02: ${{ steps.aggregate.outputs.task2_score || 0 }}, task_03: ${{ steps.aggregate.outputs.task3_score || 0 }}
+        runners: |
+          task_01:${{ steps.aggregate.outputs.task1_score || 0 }},
+          task_02:${{ steps.aggregate.outputs.task2_score || 0 }},
+          task_03:${{ steps.aggregate.outputs.task3_score || 0 }}
 
   # JOB: ПРОВЕРКА КАЧЕСТВА КОДА
   code-quality-check:
