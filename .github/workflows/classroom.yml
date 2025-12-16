@@ -136,14 +136,14 @@ jobs:
           fi
           
           echo -n "$encoded" | base64 -d 2>/dev/null | python3 -c "
-    import sys, json
-    try:
-        data = json.load(sys.stdin)
-        print(f'✅ $name: Valid JSON, score: {data.get(\"tests\", [{}])[0].get(\"score\", \"N/A\")}/{data.get(\"max_score\", \"N/A\")}')
-        print(f'   Structure: {list(data.keys())}')
-    except Exception as e:
-        print(f'❌ $name: Invalid JSON: {e}')
-    " 2>/dev/null || echo "❌ $name: Decoding failed"
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(f'✅ $name: Valid JSON, score: {data.get(\"tests\", [{}])[0].get(\"score\", \"N/A\")}/{data.get(\"max_score\", \"N/A\")}')
+    print(f'   Structure: {list(data.keys())}')
+except Exception as e:
+    print(f'❌ $name: Invalid JSON: {e}')
+" 2>/dev/null || echo "❌ $name: Decoding failed"
         }
         
         check_json "$TASK1_RAW" "Task 1"
