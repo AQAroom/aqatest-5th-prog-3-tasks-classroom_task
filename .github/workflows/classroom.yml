@@ -80,7 +80,7 @@ jobs:
     # ============ ЗАДАЧА 2: ПАЛИНДРОМ ============
     - name: "[TASK 2] Простой палиндром"
       if: matrix.task == 2
-      id: task2_simple
+      id: task2_text_en
       uses: classroom-resources/autograding-io-grader@v1
       with:
         test-name: "Задача 2: Простой палиндром"
@@ -106,12 +106,12 @@ jobs:
     
     - name: "[TASK 2] Пустая строка"
       if: matrix.task == 2
-      id: task2_empty
+      id: task2_text_ru
       uses: classroom-resources/autograding-io-grader@v1
       with:
         test-name: "Задача 2: Пустая строка"
         command: python task_02.py
-        input: ""
+        input: "арозаупаланалапуазора"
         expected-output: 'True'
         comparison-method: exact
         timeout: 5
@@ -200,9 +200,9 @@ jobs:
           
         elif [ "${{ matrix.task }}" = "2" ]; then
           python3 tools/parse_scores.py 2 \
-            "${{ steps.task2_simple.outputs.result }}" \
+            "${{ steps.task2_text_en.outputs.result }}" \
             "${{ steps.task2_not_palindrome.outputs.result }}" \
-            "${{ steps.task2_empty.outputs.result }}" > task2_score.txt
+            "${{ steps.task2_text_ru.outputs.result }}" > task2_score.txt
           
           echo "Задача 2 результат:"
           cat task2_score.txt
