@@ -146,15 +146,15 @@ jobs:
 
     - name: Debug Test Results
       run: |
-        echo "=== ПРОВЕРКА РЕЗУЛЬТАТОВ ТЕСТОВ С check_json.py ==="
+        echo "=== ПРОВЕРКА РЕЗУЛЬТАТОВ ТЕСТОВ ==="
         
         echo ""
         echo "1. task1_add:"
-        echo "${{ steps.task1_add.outputs.result }}" | python3 tools/check_json.py "task1_add"
+        python3 tools/check_json.py "${{ steps.task1_add.outputs.result || 'NOT_SET' }}" "task1_add"
         
         echo ""
         echo "2. task1_sub:"
-        echo "${{ steps.task1_sub.outputs.result }}" | python3 tools/check_json.py "task1_sub"
+        python3 tools/check_json.py "${{ steps.task1_sub.outputs.result || 'NOT_SET' }}" "task1_sub"
 
     # ============ АГРЕГАЦИЯ РЕЗУЛЬТАТОВ ============
     - name: Aggregate Task 1 Results
@@ -305,22 +305,107 @@ jobs:
     # ============ ГЕНЕРАЦИЯ ОТЧЕТА ============
     - name: Generate Final Summary
       run: |
-        TASK1_SCORE=${{ needs.run-and-aggregate-tests.outputs.task1_score || 0 }}
-        TASK2_SCORE=${{ needs.run-and-aggregate-tests.outputs.task2_score || 0 }}
-        TASK3_SCORE=${{ needs.run-and-aggregate-tests.outputs.task3_score || 0 }}
+        # Используем реальные баллы из агрегированных файлов
+        TASK1_SCORE=0
+        TASK2_SCORE=0
+        TASK3_SCORE=0
+        
+        # Извлекаем баллы из агрегированных файлов
+        if [ -f "./aggregated/task1_aggregated.txt" ]; then
+          TASK1_JSON=$(grep -oP 'AGGREGATED_RESULT=\K.+' ./aggregated/task1_aggregated.txt 2>/dev/null | base64 -d 2>/dev/null || echo "{}")
+          TASK1_SCORE=$(echo "$TASK1_JSON" | python3 -c "import json, sys; data=json.load(sys.stdin) if sys.stdin.read() else {}; print(data.get('tests', [{}])[0].get('score', 0))" 2>/dev/null || echo "0")
+        fi
+        
+        if [ -f "./aggregated/task2_aggregated.txt" ]; then
+          TASK2_JSON=$(grep -oP 'AGGREGATED_RESULT=\K.+' ./aggregated/task2_aggregated.txt 2>/dev/null | base64 -d 2>/dev/null || echo "{}")
+          TASK2_SCORE=$(echo "$TASK2_JSON" | python3 -c "import json, sys; data=json.load(sys.stdin) if sys.stdin.read() else {}; print(data.get('tests', [{}])[0].get('score', 0))" 2>/dev/null || echo "0")
+        fi
+        
+        if [ -f "./aggregated/task3_aggregated.txt" ]; then
+          TASK3_JSON=$(grep -oP 'AGGREGATED_RESULT=\K.+' ./aggregated/task3_aggregated.txt 2>/dev/null | base64 -d 2>/dev/null || echo "{}")
+          TASK3_SCORE=$(echo "$TASK3_JSON" | python3 -c "import json, sys; data=json.load(sys.stdin) if sys.stdin.read() else {}; print(data.get('tests', [{}])[0].get('score', 0))" 2>/dev/null || echo "0")
+        fi
+        
+        # Если не получилось из файлов, используем значения из предыдущего job
+        if [ "$TASK1_SCORE" -eq 0 ]; then
+          TASK1_SCORE=${{ needs.run-autograding-tests.outputs.task1_score || 0 }}
+        fi
+        if [ "$TASK2_SCORE" -eq 0 ]; then
+          TASK2_SCORE=${{ needs.run-autograding-tests.outputs.task2_score || 0 }}
+        fi
+        if [ "$TASK3_SCORE" -eq 0 ]; then
+          TASK3_SCORE=${{ needs.run-autograding-tests.outputs.task3_score || 0 }}
+        fi
+        
         TOTAL_SCORE=$((TASK1_SCORE + TASK2_SCORE + TASK3_SCORE))
         MAX_SCORE=110
         
         echo "## 📊 ИТОГОВЫЙ ОТЧЕТ ПО ВСЕМ ЗАДАНИЯМ" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 📈 Сводная таблица" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
         echo "| Задание | Баллы | Максимум | Статус |" >> $GITHUB_STEP_SUMMARY
         echo "|---------|-------|----------|--------|" >> $GITHUB_STEP_SUMMARY
-        echo "| **Задача 1: Калькулятор** | $TASK1_SCORE | 30 | $(if [ $TASK1_SCORE -ge 25 ]; then echo "✅"; elif [ $TASK1_SCORE -ge 15 ]; then echo "⚠️"; else echo "❌"; fi) |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Задача 2: Палиндром** | $TASK2_SCORE | 40 | $(if [ $TASK2_SCORE -ge 32 ]; then echo "✅"; elif [ $TASK2_SCORE -ge 20 ]; then echo "⚠️"; else echo "❌"; fi) |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Задача 3: Числа Фибоначчи** | $TASK3_SCORE | 40 | $(if [ $TASK3_SCORE -ge 32 ]; then echo "✅"; elif [ $TASK3_SCORE -ge 20 ]; then echo "⚠️"; else echo "❌"; fi) |" >> $GITHUB_STEP_SUMMARY
+        
+        # Статусы с условиями
+        TASK1_STATUS="❌"
+        if [ $TASK1_SCORE -ge 25 ]; then
+          TASK1_STATUS="✅"
+        elif [ $TASK1_SCORE -ge 15 ]; then
+          TASK1_STATUS="⚠️"
+        fi
+        
+        TASK2_STATUS="❌"
+        if [ $TASK2_SCORE -ge 32 ]; then
+          TASK2_STATUS="✅"
+        elif [ $TASK2_SCORE -ge 20 ]; then
+          TASK2_STATUS="⚠️"
+        fi
+        
+        TASK3_STATUS="❌"
+        if [ $TASK3_SCORE -ge 32 ]; then
+          TASK3_STATUS="✅"
+        elif [ $TASK3_SCORE -ge 20 ]; then
+          TASK3_STATUS="⚠️"
+        fi
+        
+        echo "| **Задача 1: Калькулятор** | $TASK1_SCORE | 30 | $TASK1_STATUS |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Задача 2: Палиндром** | $TASK2_SCORE | 40 | $TASK2_STATUS |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Задача 3: Числа Фибоначчи** | $TASK3_SCORE | 40 | $TASK3_STATUS |" >> $GITHUB_STEP_SUMMARY
         echo "| **ВСЕГО** | **$TOTAL_SCORE** | **$MAX_SCORE** | **$((TOTAL_SCORE * 100 / MAX_SCORE))%** |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 📁 Найденные файлы:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Проверка файлов
+        for file in task_01.py task_02.py task_03.py; do
+          if [ -f "$file" ]; then
+            echo "✅ **$file** - найден" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **$file** - не найден" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🏆 Итоговая оценка: **$TOTAL_SCORE / $MAX_SCORE**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Рекомендации
+        if [ "$TOTAL_SCORE" -eq "$MAX_SCORE" ]; then
+          echo "🎉 **ПОЗДРАВЛЯЕМ! Все задачи выполнены на 100%!**" >> $GITHUB_STEP_SUMMARY
+        elif [ "$PERCENTAGE" -ge 80 ]; then
+          echo "👍 **Отличный результат! Почти все задачи выполнены.**" >> $GITHUB_STEP_SUMMARY
+        elif [ "$PERCENTAGE" -ge 60 ]; then
+          echo "⚠️ **Хорошая работа, но есть куда расти.**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Нужно серьезно поработать над заданиями.**" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "*Автоматическая проверка завершена* • $(date)" >> $GITHUB_STEP_SUMMARY
 
-# JOB 3: АНАЛИЗ КАЧЕСТВА КОДА С ЛИНТЕРАМИ  # <-- БЕЗ ПРОБЕЛОВ ПЕРЕД КОММЕНТАРИЕМ!
+# JOB 3: АНАЛИЗ КАЧЕСТВА КОДА С ЛИНТЕРАМИ
   code-quality-analysis:
     name: Анализ качества кода
     runs-on: ubuntu-latest
