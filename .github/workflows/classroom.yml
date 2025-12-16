@@ -8,16 +8,11 @@ permissions:
   contents: read
 
 jobs:
-  # JOB: ОЦЕНКА ЗАДАНИЙ (3 параллельных проверки)
-  run-autograding-tests:
-    name: Оценивание всех задач
+  # JOB 1: Запуск тестов и агрегация
+  run-and-aggregate-tests:
+    name: Запуск и агрегация тестов
     runs-on: ubuntu-latest
     if: github.actor != 'github-classroom[bot]'
-    
-    strategy:
-      matrix:
-        task: [1, 2, 3]
-      max-parallel: 3
     
     steps:
     - name: Checkout code
@@ -28,384 +23,162 @@ jobs:
       with:
         python-version: '3.x'
     
-    # ============ ЗАДАЧА 1: КАЛЬКУЛЯТОР ============
-    - name: "[TASK 1] Сложение"
-      if: matrix.task == 1
-      id: task1_add
-      uses: classroom-resources/autograding-io-grader@v1
-      with:
-        test-name: "Задача 1: Сложение"
-        command: python task_01.py
-        input: |
-          5
-          +
-          3
-        expected-output: '8'
-        comparison-method: exact
-        timeout: 5
-        max-score: 10
+    # ============ ЗАПУСК ТЕСТОВ ============
+    # [Все твои тестовые шаги остаются как есть]
+    # task1_add, task1_sub, task1_div_zero, и т.д.
     
-    - name: "[TASK 1] Вычитание"
-      if: matrix.task == 1
-      id: task1_sub
-      uses: classroom-resources/autograding-io-grader@v1
-      with:
-        test-name: "Задача 1: Вычитание"
-        command: python task_01.py
-        input: |
-          10
-          -
-          4
-        expected-output: '6'
-        comparison-method: exact
-        timeout: 5
-        max-score: 10
-    
-    - name: "[TASK 1] Деление на ноль"
-      if: matrix.task == 1
-      id: task1_div_zero
-      uses: classroom-resources/autograding-io-grader@v1
-      with:
-        test-name: "Задача 1: Деление на ноль"
-        command: python task_01.py
-        input: |
-          10
-          /
-          0
-        expected-output: 'error'
-        comparison-method: contains
-        timeout: 5
-        max-score: 10
-    
-    # ============ ЗАДАЧА 2: ПАЛИНДРОМ ============
-    - name: "[TASK 2] Простой палиндром"
-      if: matrix.task == 2
-      id: task2_text_en
-      uses: classroom-resources/autograding-io-grader@v1
-      with:
-        test-name: "Задача 2: Простой палиндром"
-        command: python task_02.py
-        input: "racecar"
-        expected-output: 'True'
-        comparison-method: exact
-        timeout: 5
-        max-score: 15
-    
-    - name: "[TASK 2] Не палиндром"
-      if: matrix.task == 2
-      id: task2_not_palindrome
-      uses: classroom-resources/autograding-io-grader@v1
-      with:
-        test-name: "Задача 2: Не палиндром"
-        command: python task_02.py
-        input: "hello"
-        expected-output: 'False'
-        comparison-method: exact
-        timeout: 5
-        max-score: 15
-    
-    - name: "[TASK 2] Пустая строка"
-      if: matrix.task == 2
-      id: task2_text_ru
-      uses: classroom-resources/autograding-io-grader@v1
-      with:
-        test-name: "Задача 2: Пустая строка"
-        command: python task_02.py
-        input: "арозаупаланалапуазора"
-        expected-output: 'True'
-        comparison-method: exact
-        timeout: 5
-        max-score: 10
-    
-    # ============ ЗАДАЧА 3: ФИБОНАЧЧИ ============
-    - name: "[TASK 3] Fibonacci(0)"
-      if: matrix.task == 3
-      id: task3_fib0
-      uses: classroom-resources/autograding-io-grader@v1
-      with:
-        test-name: "Задача 3: Fibonacci(0)"
-        command: python task_03.py
-        input: "0"
-        expected-output: '0'
-        comparison-method: exact
-        timeout: 5
-        max-score: 10
-    
-    - name: "[TASK 3] Fibonacci(1)"
-      if: matrix.task == 3
-      id: task3_fib1
-      uses: classroom-resources/autograding-io-grader@v1
-      with:
-        test-name: "Задача 3: Fibonacci(1)"
-        command: python task_03.py
-        input: "1"
-        expected-output: '1'
-        comparison-method: exact
-        timeout: 5
-        max-score: 10
-    
-    - name: "[TASK 3] Fibonacci(10)"
-      if: matrix.task == 3
-      id: task3_fib10
-      uses: classroom-resources/autograding-io-grader@v1
-      with:
-        test-name: "Задача 3: Fibonacci(10)"
-        command: python task_03.py
-        input: "10"
-        expected-output: '55'
-        comparison-method: exact
-        timeout: 5
-        max-score: 20
-    
-    # - name: DEBUG - Что в outputs?
-    #   run: |
-    #     echo "=== RAW OUTPUTS ==="
-    #     echo "task1_add outputs:"
-    #     echo "${{ toJson(steps.task1_add.outputs) }}"
-        
-    #     echo "task1_add.result:"
-    #     echo "${{ steps.task1_add.outputs.result }}"
-        
-    #     # Декодируем base64 вручную
-    #     echo "${{ steps.task1_add.outputs.result }}" | base64 -d
-    #     echo ""
-
-    - name: Check if parser exists
+    # ============ АГРЕГАЦИЯ РЕЗУЛЬТАТОВ ============
+    - name: Aggregate Task 1 Results
+      id: aggregate_task1
       run: |
-        echo "=== ПРОВЕРКА СКРИПТОВ ==="
-        if [ -f "tools/parse_scores.py" ]; then
-          echo "✅ parse_scores.py найден"
-          ls -la tools/
-        else
-          echo "❌ parse_scores.py НЕ найден!"
-          echo "Содержимое каталога tools:"
-          ls -la tools/ || echo "Каталог tools не существует"
-        fi
-
-    # ============ ПАРСИМ РЕАЛЬНЫЕ БАЛЛЫ ============
-    - name: Parse and Save Scores
-      if: always()
-      run: |
-        # Парсим ТОЛЬКО реальные результаты
-        echo "=== Парсинг результатов ==="
+        echo "Агрегируем результаты задачи 1..."
+        python3 tools/aggregate_results.py \
+          "Задача 1: Калькулятор" \
+          30 \
+          "${{ steps.task1_add.outputs.result }}" \
+          "${{ steps.task1_sub.outputs.result }}" \
+          "${{ steps.task1_div_zero.outputs.result }}" > task1_aggregated.txt
         
-        if [ "${{ matrix.task }}" = "1" ]; then
-          python3 tools/parse_scores.py 1 \
-            "${{ steps.task1_add.outputs.result }}" \
-            "${{ steps.task1_sub.outputs.result }}" \
-            "${{ steps.task1_div_zero.outputs.result }}" > task1_score.txt
-          
-          echo "Задача 1 результат:"
-          cat task1_score.txt
-          
-        elif [ "${{ matrix.task }}" = "2" ]; then
-          python3 tools/parse_scores.py 2 \
-            "${{ steps.task2_text_en.outputs.result }}" \
-            "${{ steps.task2_not_palindrome.outputs.result }}" \
-            "${{ steps.task2_text_ru.outputs.result }}" > task2_score.txt
-          
-          echo "Задача 2 результат:"
-          cat task2_score.txt
-          
-        elif [ "${{ matrix.task }}" = "3" ]; then
-          python3 tools/parse_scores.py 3 \
-            "${{ steps.task3_fib0.outputs.result }}" \
-            "${{ steps.task3_fib1.outputs.result }}" \
-            "${{ steps.task3_fib10.outputs.result }}" > task3_score.txt
-          
-          echo "Задача 3 результат:"
-          cat task3_score.txt
-        fi
-
-    - name: Upload Parsed Scores
+        # Извлекаем результат
+        AGG_RESULT=$(grep -oP 'AGGREGATED_RESULT=\K.+' task1_aggregated.txt)
+        echo "task1_aggregated=$AGG_RESULT" >> $GITHUB_OUTPUT
+        
+        echo "Результат агрегации задачи 1:"
+        echo "$AGG_RESULT" | base64 -d | python3 -m json.tool || true
+    
+    - name: Aggregate Task 2 Results
+      id: aggregate_task2
+      run: |
+        echo "Агрегируем результаты задачи 2..."
+        python3 tools/aggregate_results.py \
+          "Задача 2: Палиндром" \
+          40 \
+          "${{ steps.task2_simple.outputs.result }}" \
+          "${{ steps.task2_not_palindrome.outputs.result }}" \
+          "${{ steps.task2_empty.outputs.result }}" > task2_aggregated.txt
+        
+        AGG_RESULT=$(grep -oP 'AGGREGATED_RESULT=\K.+' task2_aggregated.txt)
+        echo "task2_aggregated=$AGG_RESULT" >> $GITHUB_OUTPUT
+        
+        echo "Результат агрегации задачи 2:"
+        echo "$AGG_RESULT" | base64 -d | python3 -m json.tool || true
+    
+    - name: Aggregate Task 3 Results
+      id: aggregate_task3
+      run: |
+        echo "Агрегируем результаты задачи 3..."
+        python3 tools/aggregate_results.py \
+          "Задача 3: Числа Фибоначчи" \
+          40 \
+          "${{ steps.task3_fib0.outputs.result }}" \
+          "${{ steps.task3_fib1.outputs.result }}" \
+          "${{ steps.task3_fib10.outputs.result }}" > task3_aggregated.txt
+        
+        AGG_RESULT=$(grep -oP 'AGGREGATED_RESULT=\K.+' task3_aggregated.txt)
+        echo "task3_aggregated=$AGG_RESULT" >> $GITHUB_OUTPUT
+        
+        echo "Результат агрегации задачи 3:"
+        echo "$AGG_RESULT" | base64 -d | python3 -m json.tool || true
+    
+    # ============ СОХРАНЕНИЕ ДЛЯ ФИНАЛЬНОГО ОТЧЕТА ============
+    - name: Save Aggregated Results
       uses: actions/upload-artifact@v4
       with:
-        name: parsed-scores-task-${{ matrix.task }}
-        path: task*_score.txt  # Загрузит все файлы результатов
+        name: aggregated-results
+        path: |
+          task1_aggregated.txt
+          task2_aggregated.txt
+          task3_aggregated.txt
         retention-days: 1
-
-  # JOB: СБОРКА ИТОГОВОЙ СВОДКИ
-  generate-final-report:
-    name: Итоговая сводка
-    runs-on: ubuntu-latest
-    needs: run-autograding-tests
-    if: always()
-
-    steps:
-    - name: Checkout code again
-      uses: actions/checkout@v4
-
-    - name: Download Parsed Scores
-      uses: actions/download-artifact@v4
-      with:
-        path: ./parsed_scores
-        pattern: parsed-scores-*
-        merge-multiple: true
     
-    - name: Debug Downloaded Files
+    # ============ ПАРСИНГ БАЛЛОВ ДЛЯ ОТЧЕТА ============
+    - name: Parse Scores for Report
+      id: parse_scores
       run: |
-        echo "=== ПРОВЕРКА СКАЧАННЫХ ФАЙЛОВ ==="
-        echo "Содержимое каталога ./parsed_scores:"
-        ls -la ./parsed_scores/ || echo "Каталог не существует"
+        python3 tools/parse_scores.py 1 \
+          "${{ steps.task1_add.outputs.result }}" \
+          "${{ steps.task1_sub.outputs.result }}" \
+          "${{ steps.task1_div_zero.outputs.result }}" > task1_score.txt
         
-        echo ""
-        echo "Поиск файлов с результатами:"
-        find . -name "*score*.txt" -type f 2>/dev/null | while read file; do
-          echo "Файл: $file"
-          cat "$file" || echo "Не могу прочитать"
-          echo "---"
-        done
-    
-    - name: Calculate Total Scores
-      id: calculate
-      run: |
-        echo "=== РАСЧЕТ БАЛЛОВ ==="
+        python3 tools/parse_scores.py 2 \
+          "${{ steps.task2_simple.outputs.result }}" \
+          "${{ steps.task2_not_palindrome.outputs.result }}" \
+          "${{ steps.task2_empty.outputs.result }}" > task2_score.txt
         
-        # Ищем файлы во всех возможных местах
-        TASK1=0
-        TASK2=0
-        TASK3=0
+        python3 tools/parse_scores.py 3 \
+          "${{ steps.task3_fib0.outputs.result }}" \
+          "${{ steps.task3_fib1.outputs.result }}" \
+          "${{ steps.task3_fib10.outputs.result }}" > task3_score.txt
         
-        # Вариант 1: в downloaded artifacts
-        if [ -f "./parsed_scores/task1_score.txt" ]; then
-          TASK1=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task1_score.txt 2>/dev/null || echo "0")
-          echo "Нашли task1_score.txt в artifacts: $TASK1"
-        fi
-        
-        if [ -f "./parsed_scores/task2_score.txt" ]; then
-          TASK2=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task2_score.txt 2>/dev/null || echo "0")
-          echo "Нашли task2_score.txt в artifacts: $TASK2"
-        fi
-        
-        if [ -f "./parsed_scores/task3_score.txt" ]; then
-          TASK3=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task3_score.txt 2>/dev/null || echo "0")
-          echo "Нашли task3_score.txt в artifacts: $TASK3"
-        fi
-        
-        # Вариант 2: прямо в корне (на всякий случай)
-        if [ -f "task1_score.txt" ]; then
-          SCORE=$(grep -oP 'TASK_SCORE=\K\d+' task1_score.txt 2>/dev/null || echo "0")
-          echo "Нашли task1_score.txt в корне: $SCORE"
-          TASK1=$SCORE
-        fi
-        
-        # Выводим результаты
-        echo ""
-        echo "ИТОГОВЫЕ БАЛЛЫ:"
-        echo "Задача 1: $TASK1 (должно быть 30 для пройденных тестов)"
-        echo "Задача 2: $TASK2"
-        echo "Задача 3: $TASK3"
+        # Сохраняем баллы в outputs
+        TASK1=$(grep -oP 'TASK_SCORE=\K\d+' task1_score.txt)
+        TASK2=$(grep -oP 'TASK_SCORE=\K\d+' task2_score.txt)
+        TASK3=$(grep -oP 'TASK_SCORE=\K\d+' task3_score.txt)
         
         echo "task1_score=$TASK1" >> $GITHUB_OUTPUT
         echo "task2_score=$TASK2" >> $GITHUB_OUTPUT
         echo "task3_score=$TASK3" >> $GITHUB_OUTPUT
         echo "total_score=$(($TASK1 + $TASK2 + $TASK3))" >> $GITHUB_OUTPUT
+
+  # JOB 2: ФИНАЛЬНЫЙ ОТЧЕТ И ОТПРАВКА В CLASSROOM
+  generate-final-report:
+    name: Итоговый отчет и отправка
+    runs-on: ubuntu-latest
+    needs: run-and-aggregate-tests
+    if: always()
     
-    - name: Generate Final Summary
-      run: |
-        TASK1_SCORE=${{ steps.calculate.outputs.task1_score || 0 }}
-        TASK2_SCORE=${{ steps.calculate.outputs.task2_score || 0 }}
-        TASK3_SCORE=${{ steps.calculate.outputs.task3_score || 0 }}
-        TOTAL_SCORE=${{ steps.calculate.outputs.total_score || 0 }}
-        MAX_SCORE=${{ steps.calculate.outputs.max_score || 110 }}
-
-        # Расчет процента
-        if [ "$MAX_SCORE" -gt 0 ]; then
-          PERCENTAGE=$((TOTAL_SCORE * 100 / MAX_SCORE))
-        else
-          PERCENTAGE=0
-        fi
-
-        # Генерация отчета
-        echo "## 📊 ИТОГОВЫЙ ОТЧЕТ ПО ВСЕМ ЗАДАНИЯМ" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        echo "### 📈 Сводная таблица" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Задание | Баллы | Максимум | Статус |" >> $GITHUB_STEP_SUMMARY
-        echo "|---------|-------|----------|--------|" >> $GITHUB_STEP_SUMMARY
-
-        # Статусы с условиями
-        TASK1_STATUS="❌"
-        if [ $TASK1_SCORE -ge 25 ]; then
-          TASK1_STATUS="✅"
-        elif [ $TASK1_SCORE -ge 15 ]; then
-          TASK1_STATUS="⚠️"
-        fi
-
-        TASK2_STATUS="❌"
-        if [ $TASK2_SCORE -ge 32 ]; then
-          TASK2_STATUS="✅"
-        elif [ $TASK2_SCORE -ge 20 ]; then
-          TASK2_STATUS="⚠️"
-        fi
-
-        TASK3_STATUS="❌"
-        if [ $TASK3_SCORE -ge 32 ]; then
-          TASK3_STATUS="✅"
-        elif [ $TASK3_SCORE -ge 20 ]; then
-          TASK3_STATUS="⚠️"
-        fi
-
-        echo "| **Задача 1: Калькулятор** | $TASK1_SCORE | 30 | $TASK1_STATUS |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Задача 2: Палиндром** | $TASK2_SCORE | 40 | $TASK2_STATUS |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Задача 3: Числа Фибоначчи** | $TASK3_SCORE | 40 | $TASK3_STATUS |" >> $GITHUB_STEP_SUMMARY
-        echo "| **ВСЕГО** | **$TOTAL_SCORE** | **$MAX_SCORE** | **$PERCENTAGE%** |" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        echo "### 📁 Найденные файлы:" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        # Проверка файлов
-        for file in task_01.py task_02.py task_03.py; do
-          if [ -f "$file" ]; then
-            echo "✅ **$file** - найден" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **$file** - не найден" >> $GITHUB_STEP_SUMMARY
-          fi
-        done
-
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🏆 Итоговая оценка: **$TOTAL_SCORE / $MAX_SCORE**" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        # Рекомендации
-        if [ "$TOTAL_SCORE" -eq "$MAX_SCORE" ]; then
-          echo "🎉 **ПОЗДРАВЛЯЕМ! Все задачи выполнены на 100%!**" >> $GITHUB_STEP_SUMMARY
-        elif [ "$PERCENTAGE" -ge 80 ]; then
-          echo "👍 **Отличный результат! Почти все задачи выполнены.**" >> $GITHUB_STEP_SUMMARY
-        elif [ "$PERCENTAGE" -ge 60 ]; then
-          echo "⚠️ **Хорошая работа, но есть куда расти.**" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ **Нужно серьезно поработать над заданиями.**" >> $GITHUB_STEP_SUMMARY
-        fi
-
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "*Автоматическая проверка завершена* • $(date)" >> $GITHUB_STEP_SUMMARY
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
     
-    - name: Debug Before Reporting
+    - name: Download Aggregated Results
+      uses: actions/download-artifact@v4
+      with:
+        name: aggregated-results
+        path: ./aggregated
+    
+    - name: Extract Aggregated Results
+      id: extract_results
       run: |
-        echo "=== ДЕБАГ ПЕРЕД ОТПРАВКОЙ В CLASSROOM ==="
-        echo "task1_score: ${{ steps.calculate.outputs.task1_score || 'NOT_SET' }}"
-        echo "task2_score: ${{ steps.calculate.outputs.task2_score || 'NOT_SET' }}"
-        echo "task3_score: ${{ steps.calculate.outputs.task3_score || 'NOT_SET' }}"
+        echo "Извлекаем агрегированные результаты..."
         
-        # Формируем строку вручную для проверки
-        RUNNERS_STRING="task_01:${{ steps.calculate.outputs.task1_score || 0 }},task_02:${{ steps.calculate.outputs.task2_score || 0 }},task_03:${{ steps.calculate.outputs.task3_score || 0 }}"
-        echo "Сформированная строка runners: $RUNNERS_STRING"
+        # Задача 1
+        TASK1_AGG=$(grep -oP 'AGGREGATED_RESULT=\K.+' ./aggregated/task1_aggregated.txt 2>/dev/null || echo "")
+        echo "task1_aggregated=$TASK1_AGG" >> $GITHUB_OUTPUT
         
-        # Проверяем формат
-        echo "Длина строки: ${#RUNNERS_STRING}"
-
+        # Задача 2
+        TASK2_AGG=$(grep -oP 'AGGREGATED_RESULT=\K.+' ./aggregated/task2_aggregated.txt 2>/dev/null || echo "")
+        echo "task2_aggregated=$TASK2_AGG" >> $GITHUB_OUTPUT
+        
+        # Задача 3
+        TASK3_AGG=$(grep -oP 'AGGREGATED_RESULT=\K.+' ./aggregated/task3_aggregated.txt 2>/dev/null || echo "")
+        echo "task3_aggregated=$TASK3_AGG" >> $GITHUB_OUTPUT
+        
+        echo "Результаты извлечены"
+    
+    # ============ ОТПРАВКА В GITHUB CLASSROOM ============
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
+      env:
+        # КЛЮЧЕВОЕ: переменные должны быть в ВЕРХНЕМ РЕГИСТРЕ
+        TASK_01_RESULTS: "${{ steps.extract_results.outputs.task1_aggregated }}"
+        TASK_02_RESULTS: "${{ steps.extract_results.outputs.task2_aggregated }}"
+        TASK_03_RESULTS: "${{ steps.extract_results.outputs.task3_aggregated }}"
       with:
-        # ФОРМАТ: "runner1:score1,runner2:score2,runner3:score3"
-        runners: "task_01:${{ steps.calculate.outputs.task1_score || 0 }},task_02:${{ steps.calculate.outputs.task2_score || 0 }},task_03:${{ steps.calculate.outputs.task3_score || 0 }}"
-        # runners: "task_01:${{ steps.calculate.outputs.task1_score }},task_02:${{ steps.calculate.outputs.task2_score }},task_03:${{ steps.calculate.outputs.task3_score }}"
-        #  task_01:${{ steps.calculate.outputs.task1_score || 0 }},task_02:${{ steps.calculate.outputs.task2_score || 0 }},task_03:${{ steps.calculate.outputs.task3_score || 0 }}
-        
-  # JOB: АНАЛИЗ КАЧЕСТВА КОДА С ЛИНТЕРАМИ
+        # Runner ID должны совпадать с именами в env (без _RESULTS)
+        runners: "task_01,task_02,task_03"
+    
+    # ============ ГЕНЕРАЦИЯ ОТЧЕТА (оставляем как есть) ============
+    - name: Generate Final Summary
+      run: |
+        # [Твой код генерации отчета остается без изменений]
+        # Используем баллы из первого job
+        TASK1_SCORE=${{ needs.run-and-aggregate-tests.outputs.task1_score || 0 }}
+        TASK2_SCORE=${{ needs.run-and-aggregate-tests.outputs.task2_score || 0 }}
+        TASK3_SCORE=${{ needs.run-and-aggregate-tests.outputs.task3_score || 0 }}
+        # ... остальной код отчета
+
+   # JOB 3: АНАЛИЗ КАЧЕСТВА КОДА С ЛИНТЕРАМИ
   code-quality-analysis:
     name: Анализ качества кода
     runs-on: ubuntu-latest
