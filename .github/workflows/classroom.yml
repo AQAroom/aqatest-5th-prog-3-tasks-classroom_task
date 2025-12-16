@@ -72,7 +72,7 @@ jobs:
     
     # ============ ЗАДАЧА 2: ПАЛИНДРОМ ============
     - name: "[TASK 2] Простой палиндром"
-      id: task2_simple
+      id: task2_text_en
       uses: classroom-resources/autograding-io-grader@v1
       with:
         test-name: "Задача 2: Простой палиндром"
@@ -96,12 +96,12 @@ jobs:
         max-score: 15
     
     - name: "[TASK 2] Пустая строка"
-      id: task2_empty
+      id: task2_text_ru
       uses: classroom-resources/autograding-io-grader@v1
       with:
         test-name: "Задача 2: Пустая строка"
         command: python task_02.py
-        input: ""
+        input: "арозаупаланалапуазора"
         expected-output: 'True'
         comparison-method: exact
         timeout: 5
@@ -181,9 +181,9 @@ jobs:
         python3 tools/aggregate_results.py \
           "Задача 2: Палиндром" \
           40 \
-          "${{ steps.task2_simple.outputs.result }}" \
+          "${{ steps.task2_text_en.outputs.result }}" \
           "${{ steps.task2_not_palindrome.outputs.result }}" \
-          "${{ steps.task2_empty.outputs.result }}" > task2_aggregated.txt
+          "${{ steps.task2_text_ru.outputs.result }}" > task2_aggregated.txt
         
         AGG_RESULT=$(grep -oP 'AGGREGATED_RESULT=\K.+' task2_aggregated.txt)
         echo "task2_aggregated=$AGG_RESULT" >> $GITHUB_OUTPUT
@@ -237,9 +237,9 @@ jobs:
           "${{ steps.task1_div_zero.outputs.result }}" > task1_score.txt
         
         python3 tools/parse_scores.py 2 \
-          "${{ steps.task2_simple.outputs.result }}" \
+          "${{ steps.task2_text_en.outputs.result }}" \
           "${{ steps.task2_not_palindrome.outputs.result }}" \
-          "${{ steps.task2_empty.outputs.result }}" > task2_score.txt
+          "${{ steps.task2_text_ru.outputs.result }}" > task2_score.txt
         
         python3 tools/parse_scores.py 3 \
           "${{ steps.task3_fib0.outputs.result }}" \
