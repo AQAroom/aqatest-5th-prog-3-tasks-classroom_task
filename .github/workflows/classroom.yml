@@ -1,5 +1,5 @@
 name: Autograding Tests
-'on':
+on:
   - push
   - repository_dispatch
 permissions:
@@ -24,10 +24,137 @@ jobs:
         python-version: '3.x'
     
     # ============ ЗАПУСК ТЕСТОВ ============
-    # [Все твои тестовые шаги остаются как есть]
-    # task1_add, task1_sub, task1_div_zero, и т.д.
+    # ============ ЗАДАЧА 1: КАЛЬКУЛЯТОР ============
+    - name: "[TASK 1] Сложение"
+      if: matrix.task == 1
+      id: task1_add
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 1: Сложение"
+        command: python task_01.py
+        input: |
+          5
+          +
+          3
+        expected-output: '8'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    - name: "[TASK 1] Вычитание"
+      if: matrix.task == 1
+      id: task1_sub
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 1: Вычитание"
+        command: python task_01.py
+        input: |
+          10
+          -
+          4
+        expected-output: '6'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    - name: "[TASK 1] Деление на ноль"
+      if: matrix.task == 1
+      id: task1_div_zero
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 1: Деление на ноль"
+        command: python task_01.py
+        input: |
+          10
+          /
+          0
+        expected-output: 'error'
+        comparison-method: contains
+        timeout: 5
+        max-score: 10
+    
+    # ============ ЗАДАЧА 2: ПАЛИНДРОМ ============
+    - name: "[TASK 2] Простой палиндром"
+      if: matrix.task == 2
+      id: task2_text_en
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 2: Простой палиндром"
+        command: python task_02.py
+        input: "racecar"
+        expected-output: 'True'
+        comparison-method: exact
+        timeout: 5
+        max-score: 15
+    
+    - name: "[TASK 2] Не палиндром"
+      if: matrix.task == 2
+      id: task2_not_palindrome
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 2: Не палиндром"
+        command: python task_02.py
+        input: "hello"
+        expected-output: 'False'
+        comparison-method: exact
+        timeout: 5
+        max-score: 15
+    
+    - name: "[TASK 2] Пустая строка"
+      if: matrix.task == 2
+      id: task2_text_ru
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 2: Пустая строка"
+        command: python task_02.py
+        input: "арозаупаланалапуазора"
+        expected-output: 'True'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    # ============ ЗАДАЧА 3: ФИБОНАЧЧИ ============
+    - name: "[TASK 3] Fibonacci(0)"
+      if: matrix.task == 3
+      id: task3_fib0
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 3: Fibonacci(0)"
+        command: python task_03.py
+        input: "0"
+        expected-output: '0'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    - name: "[TASK 3] Fibonacci(1)"
+      if: matrix.task == 3
+      id: task3_fib1
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 3: Fibonacci(1)"
+        command: python task_03.py
+        input: "1"
+        expected-output: '1'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    - name: "[TASK 3] Fibonacci(10)"
+      if: matrix.task == 3
+      id: task3_fib10
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 3: Fibonacci(10)"
+        command: python task_03.py
+        input: "10"
+        expected-output: '55'
+        comparison-method: exact
+        timeout: 5
+        max-score: 20
     
     # ============ АГРЕГАЦИЯ РЕЗУЛЬТАТОВ ============
+   # ============ АГРЕГАЦИЯ РЕЗУЛЬТАТОВ ============
     - name: Aggregate Task 1 Results
       id: aggregate_task1
       run: |
@@ -39,12 +166,11 @@ jobs:
           "${{ steps.task1_sub.outputs.result }}" \
           "${{ steps.task1_div_zero.outputs.result }}" > task1_aggregated.txt
         
-        # Извлекаем результат
         AGG_RESULT=$(grep -oP 'AGGREGATED_RESULT=\K.+' task1_aggregated.txt)
         echo "task1_aggregated=$AGG_RESULT" >> $GITHUB_OUTPUT
         
         echo "Результат агрегации задачи 1:"
-        echo "$AGG_RESULT" | base64 -d | python3 -m json.tool || true
+        echo "$AGG_RESULT" | base64 -d | python3 -m json.tool 2>/dev/null || echo "Не удалось декодировать JSON"
     
     - name: Aggregate Task 2 Results
       id: aggregate_task2
@@ -61,7 +187,7 @@ jobs:
         echo "task2_aggregated=$AGG_RESULT" >> $GITHUB_OUTPUT
         
         echo "Результат агрегации задачи 2:"
-        echo "$AGG_RESULT" | base64 -d | python3 -m json.tool || true
+        echo "$AGG_RESULT" | base64 -d | python3 -m json.tool 2>/dev/null || echo "Не удалось декодировать JSON"
     
     - name: Aggregate Task 3 Results
       id: aggregate_task3
@@ -78,9 +204,17 @@ jobs:
         echo "task3_aggregated=$AGG_RESULT" >> $GITHUB_OUTPUT
         
         echo "Результат агрегации задачи 3:"
-        echo "$AGG_RESULT" | base64 -d | python3 -m json.tool || true
+        echo "$AGG_RESULT" | base64 -d | python3 -m json.tool 2>/dev/null || echo "Не удалось декодировать JSON"
     
-    # ============ СОХРАНЕНИЕ ДЛЯ ФИНАЛЬНОГО ОТЧЕТА ============
+    # ============ ПРОВЕРКА ФАЙЛОВ ============
+    - name: Debug Aggregated Results
+      run: |
+        echo "=== ПРОВЕРКА ФАЙЛОВ ==="
+        
+        # Создаем простой Python скрипт для проверки
+        python3 tools/check_file_tasks.py
+
+    # ============ СОХРАНЕНИЕ РЕЗУЛЬТАТОВ ============
     - name: Save Aggregated Results
       uses: actions/upload-artifact@v4
       with:
@@ -90,49 +224,7 @@ jobs:
           task2_aggregated.txt
           task3_aggregated.txt
         retention-days: 1
-
-    - name: Debug Extracted Results
-      run: |
-        echo "=== ДЕТАЛЬНАЯ ПРОВЕРКА АГРЕГИРОВАННЫХ РЕЗУЛЬТАТОВ ==="
-        
-        echo ""
-        echo "1. Содержимое файлов:"
-        for file in task1_aggregated.txt task2_aggregated.txt task3_aggregated.txt; do
-          echo ""
-          echo "Файл: $file"
-          echo "Размер: $(wc -c < "$file" 2>/dev/null || echo 0) байт"
-          if [ -f "$file" ]; then
-            cat "$file"
-          else
-            echo "Файл не существует"
-          fi
-        done
-        
-        echo ""
-        echo "2. Извлекаем AGGREGATED_RESULT для каждой задачи:"
-        
-        # Функция для извлечения AGGREGATED_RESULT
-        extract_agg_result() {
-            local file=$1
-            if [ -f "$file" ]; then
-                grep -oP 'AGGREGATED_RESULT=\K.+' "$file" 2>/dev/null || echo "NOT_FOUND"
-            else
-                echo "NOT_FOUND"
-            fi
-        }
-        
-        # Проверяем каждый файл
-        for i in 1 2 3; do
-            FILE="task${i}_aggregated.txt"
-            RESULT=$(extract_agg_result "$FILE")
-            echo ""
-            echo "TASK$i raw (первые 100 символов): ${RESULT:0:100}..."
-            echo "Длина TASK$i: ${#RESULT}"
-            
-            # Проверяем JSON
-            python3 tools/check_json.py "$RESULT" "Task $i"
-        done
-
+    
     # ============ ПАРСИНГ БАЛЛОВ ДЛЯ ОТЧЕТА ============
     - name: Parse Scores for Report
       id: parse_scores
@@ -202,25 +294,31 @@ jobs:
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
       env:
-        # КЛЮЧЕВОЕ: переменные должны быть в ВЕРХНЕМ РЕГИСТРЕ
         TASK_01_RESULTS: "${{ steps.extract_results.outputs.task1_aggregated }}"
         TASK_02_RESULTS: "${{ steps.extract_results.outputs.task2_aggregated }}"
         TASK_03_RESULTS: "${{ steps.extract_results.outputs.task3_aggregated }}"
       with:
-        # Runner ID должны совпадать с именами в env (без _RESULTS)
         runners: "task_01,task_02,task_03"
     
-    # ============ ГЕНЕРАЦИЯ ОТЧЕТА (оставляем как есть) ============
+    # ============ ГЕНЕРАЦИЯ ОТЧЕТА ============
     - name: Generate Final Summary
       run: |
-        # [Твой код генерации отчета остается без изменений]
-        # Используем баллы из первого job
         TASK1_SCORE=${{ needs.run-and-aggregate-tests.outputs.task1_score || 0 }}
         TASK2_SCORE=${{ needs.run-and-aggregate-tests.outputs.task2_score || 0 }}
         TASK3_SCORE=${{ needs.run-and-aggregate-tests.outputs.task3_score || 0 }}
-        # ... остальной код отчета
+        TOTAL_SCORE=$((TASK1_SCORE + TASK2_SCORE + TASK3_SCORE))
+        MAX_SCORE=110
+        
+        echo "## 📊 ИТОГОВЫЙ ОТЧЕТ ПО ВСЕМ ЗАДАНИЯМ" >> $GITHUB_STEP_SUMMARY
+        echo "### 📈 Сводная таблица" >> $GITHUB_STEP_SUMMARY
+        echo "| Задание | Баллы | Максимум | Статус |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|-------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Задача 1: Калькулятор** | $TASK1_SCORE | 30 | $(if [ $TASK1_SCORE -ge 25 ]; then echo "✅"; elif [ $TASK1_SCORE -ge 15 ]; then echo "⚠️"; else echo "❌"; fi) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Задача 2: Палиндром** | $TASK2_SCORE | 40 | $(if [ $TASK2_SCORE -ge 32 ]; then echo "✅"; elif [ $TASK2_SCORE -ge 20 ]; then echo "⚠️"; else echo "❌"; fi) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Задача 3: Числа Фибоначчи** | $TASK3_SCORE | 40 | $(if [ $TASK3_SCORE -ge 32 ]; then echo "✅"; elif [ $TASK3_SCORE -ge 20 ]; then echo "⚠️"; else echo "❌"; fi) |" >> $GITHUB_STEP_SUMMARY
+        echo "| **ВСЕГО** | **$TOTAL_SCORE** | **$MAX_SCORE** | **$((TOTAL_SCORE * 100 / MAX_SCORE))%** |" >> $GITHUB_STEP_SUMMARY
 
-   # JOB 3: АНАЛИЗ КАЧЕСТВА КОДА С ЛИНТЕРАМИ
+# JOB 3: АНАЛИЗ КАЧЕСТВА КОДА С ЛИНТЕРАМИ  # <-- БЕЗ ПРОБЕЛОВ ПЕРЕД КОММЕНТАРИЕМ!
   code-quality-analysis:
     name: Анализ качества кода
     runs-on: ubuntu-latest
@@ -236,12 +334,8 @@ jobs:
 
     - name: Install linters
       run: |
-        echo "Installing linters..."
         pip install pylint flake8 ruff -q
-        echo "Linters installed"
 
     - name: Run code analysis
       run: |
-        # Только Python скрипт, без лишних echo
         python3 tools/code_analysis.py >> $GITHUB_STEP_SUMMARY
-
