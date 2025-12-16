@@ -157,23 +157,25 @@ jobs:
         timeout: 5
         max-score: 20
     
-    - name: Debug outputs
-      run: |
-        echo "task1_add result: ${{ steps.task1_add.outputs.result }}"
-        echo "task1_sub result: ${{ steps.task1_sub.outputs.result }}"
-    
-    - name: DEBUG - Что в outputs?
-      run: |
-        echo "=== RAW OUTPUTS ==="
-        echo "task1_add outputs:"
-        echo "${{ toJson(steps.task1_add.outputs) }}"
+    # - name: DEBUG - Что в outputs?
+    #   run: |
+    #     echo "=== RAW OUTPUTS ==="
+    #     echo "task1_add outputs:"
+    #     echo "${{ toJson(steps.task1_add.outputs) }}"
         
-        echo "task1_add.result:"
-        echo "${{ steps.task1_add.outputs.result }}"
+    #     echo "task1_add.result:"
+    #     echo "${{ steps.task1_add.outputs.result }}"
         
-        # Декодируем base64 вручную
-        echo "${{ steps.task1_add.outputs.result }}" | base64 -d
-        echo ""
+    #     # Декодируем base64 вручную
+    #     echo "${{ steps.task1_add.outputs.result }}" | base64 -d
+    #     echo ""
+
+    - name: Upload Parsed Scores
+      uses: actions/upload-artifact@v4
+      with:
+        name: parsed-scores-task-${{ matrix.task }}
+        path: task*_score.txt  # Загрузит все файлы результатов
+        retention-days: 1
 
     # ============ ПАРСИМ РЕАЛЬНЫЕ БАЛЛЫ ============
     - name: Parse and Save Scores
@@ -210,20 +212,23 @@ jobs:
     - name: Checkout code again
       uses: actions/checkout@v4
 
-    - name: Download all score artifacts
+    - name: Download Parsed Scores
       uses: actions/download-artifact@v4
       with:
-        path: ./artifacts
-        pattern: score-task-*
+        path: ./parsed_scores
+        pattern: parsed-scores-*
         merge-multiple: true
     
     - name: Calculate Total Scores
       id: calculate
       run: |
         # Читаем ТОЛЬКО из распарсенных файлов
-        TASK1=$(grep -oP 'TASK_SCORE=\K\d+' task1_score.txt 2>/dev/null || echo "0")
-        TASK2=$(grep -oP 'TASK_SCORE=\K\d+' task2_score.txt 2>/dev/null || echo "0")
-        TASK3=$(grep -oP 'TASK_SCORE=\K\d+' task3_score.txt 2>/dev/null || echo "0")
+        TASK1=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task1_score.txt 2>/dev/null || echo "0")
+        TASK2=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task2_score.txt 2>/dev/null || echo "0")
+        TASK3=$(grep -oP 'TASK_SCORE=\K\d+' ./parsed_scores/task3_score.txt 2>/dev/null || echo "0")
+        # TASK1=$(grep -oP 'TASK_SCORE=\K\d+' task1_score.txt 2>/dev/null || echo "0")
+        # TASK2=$(grep -oP 'TASK_SCORE=\K\d+' task2_score.txt 2>/dev/null || echo "0")
+        # TASK3=$(grep -oP 'TASK_SCORE=\K\d+' task3_score.txt 2>/dev/null || echo "0")
         
         echo "Задача 1: $TASK1"
         echo "Задача 2: $TASK2"
