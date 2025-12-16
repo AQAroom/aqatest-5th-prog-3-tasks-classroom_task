@@ -162,31 +162,32 @@ jobs:
       if: always()
       run: |
         if [ "${{ matrix.task }}" = "1" ]; then
-          # Парсим баллы из autograding результатов для задачи 1
+          echo "Парсим результаты для задачи 1"
           python3 tools/parse_scores.py 1 \
             "${{ steps.task1_add.outputs.result }}" \
             "${{ steps.task1_sub.outputs.result }}" \
             "${{ steps.task1_div_zero.outputs.result }}" > task_score.txt
-          
+
         elif [ "${{ matrix.task }}" = "2" ]; then
-          # Для задачи 2
-          python3 tools/parse_scores.py 2 > task_score.txt
-          
+          echo "Парсим результаты для задачи 2"
+          python3 tools/parse_scores.py 2 \
+            "${{ steps.task2_simple.outputs.result }}" \
+            "${{ steps.task2_not_palindrome.outputs.result }}" \
+            "${{ steps.task2_empty.outputs.result }}" > task_score.txt
+
         elif [ "${{ matrix.task }}" = "3" ]; then
-          # Для задачи 3
-          python3 tools/parse_scores.py 3 > task_score.txt
+          echo "Парсим результаты для задачи 3"
+          python3 tools/parse_scores.py 3 \
+            "${{ steps.task3_fib0.outputs.result }}" \
+            "${{ steps.task3_fib1.outputs.result }}" \
+            "${{ steps.task3_fib10.outputs.result }}" > task_score.txt
         fi
-        
-        # echo "Task ${{ matrix.task }} score: $SCORE"
-        echo "Task ${{ matrix.task }} score:"
+
+        echo "Содержимое task_score.txt:"
         cat task_score.txt
-    
-    - name: Upload Score Artifact
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: score-task-${{ matrix.task }}
-        path: task_score.txt
+
+        # Сохраняем также отдельный файл с идентификатором задачи
+        echo "TASK=${{ matrix.task }}" >> task_${{ matrix.task }}_info.txt
 
   # JOB: СБОРКА ИТОГОВОЙ СВОДКИ
   generate-final-report:
