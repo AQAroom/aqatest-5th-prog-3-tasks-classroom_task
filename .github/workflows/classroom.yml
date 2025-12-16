@@ -1,0 +1,558 @@
+name: Autograding Tests
+'on':
+  - push
+  - repository_dispatch
+permissions:
+  checks: write
+  actions: read
+  contents: read
+
+jobs:
+  # JOB: ОЦЕНКА ЗАДАНИЙ (3 параллельных проверки)
+  grade-tasks:
+    name: Оценивание всех задач
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-classroom[bot]'
+    
+    strategy:
+      matrix:
+        task: [1, 2, 3]
+      max-parallel: 3
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+    
+    # ============ ЗАДАЧА 1: КАЛЬКУЛЯТОР ============
+    - name: "[TASK 1] Сложение"
+      if: matrix.task == 1
+      id: task1_add
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 1: Сложение"
+        command: python task_01.py
+        input: "5\n+\n3"
+        expected-output: '8'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    - name: "[TASK 1] Вычитание"
+      if: matrix.task == 1
+      id: task1_sub
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 1: Вычитание"
+        command: python task_01.py
+        input: "10\n-\n4"
+        expected-output: '6'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    - name: "[TASK 1] Деление на ноль"
+      if: matrix.task == 1
+      id: task1_div_zero
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 1: Деление на ноль"
+        command: python task_01.py
+        input: "10\n/\n0"
+        expected-output: 'error'
+        comparison-method: contains
+        timeout: 5
+        max-score: 10
+    
+    # ============ ЗАДАЧА 2: ПАЛИНДРОМ ============
+    - name: "[TASK 2] Простой палиндром"
+      if: matrix.task == 2
+      id: task2_simple
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 2: Простой палиндром"
+        command: python task_02.py
+        input: "racecar"
+        expected-output: 'True'
+        comparison-method: exact
+        timeout: 5
+        max-score: 15
+    
+    - name: "[TASK 2] Не палиндром"
+      if: matrix.task == 2
+      id: task2_not_palindrome
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 2: Не палиндром"
+        command: python task_02.py
+        input: "hello"
+        expected-output: 'False'
+        comparison-method: exact
+        timeout: 5
+        max-score: 15
+    
+    - name: "[TASK 2] Пустая строка"
+      if: matrix.task == 2
+      id: task2_empty
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 2: Пустая строка"
+        command: python task_02.py
+        input: ""
+        expected-output: 'True'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    # ============ ЗАДАЧА 3: ФИБОНАЧЧИ ============
+    - name: "[TASK 3] Fibonacci(0)"
+      if: matrix.task == 3
+      id: task3_fib0
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 3: Fibonacci(0)"
+        command: python task_03.py
+        input: "0"
+        expected-output: '0'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    - name: "[TASK 3] Fibonacci(1)"
+      if: matrix.task == 3
+      id: task3_fib1
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 3: Fibonacci(1)"
+        command: python task_03.py
+        input: "1"
+        expected-output: '1'
+        comparison-method: exact
+        timeout: 5
+        max-score: 10
+    
+    - name: "[TASK 3] Fibonacci(10)"
+      if: matrix.task == 3
+      id: task3_fib10
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: "Задача 3: Fibonacci(10)"
+        command: python task_03.py
+        input: "10"
+        expected-output: '55'
+        comparison-method: exact
+        timeout: 5
+        max-score: 20
+    
+    # ============ СОБИРАЕМ РЕЗУЛЬТАТЫ ============
+    - name: Extract and Save Scores
+      if: always()
+      run: |
+        # Создаем Python скрипт для извлечения баллов
+        cat > extract_scores.py << 'PYTHON_EOF'
+import sys
+import json
+import base64
+
+def extract_score(encoded_result):
+    """Извлекает баллы из base64 закодированного результата"""
+    if not encoded_result:
+        return 0
+    
+    try:
+        decoded = base64.b64decode(encoded_result).decode('utf-8')
+        data = json.loads(decoded)
+        
+        # Проверяем разные форматы результатов
+        if 'tests' in data and len(data['tests']) > 0:
+            return int(data['tests'][0].get('score', 0))
+        elif 'score' in data:
+            return int(data['score'])
+        elif 'result' in data and 'score' in data['result']:
+            return int(data['result']['score'])
+        else:
+            return 0
+    except Exception as e:
+        print(f"Error extracting score: {e}", file=sys.stderr)
+        return 0
+
+if __name__ == "__main__":
+    task = sys.argv[1]
+    
+    # Получаем результаты из переменных окружения
+    if task == "1":
+        add_result = sys.argv[2]
+        sub_result = sys.argv[3]
+        div_zero_result = sys.argv[4]
+        
+        add_score = extract_score(add_result)
+        sub_score = extract_score(sub_result)
+        div_zero_score = extract_score(div_zero_result)
+        
+        total = add_score + sub_score + div_zero_score
+        print(f"TASK1_TOTAL={total}")
+        print(f"TASK1_DETAILS=Сложение:{add_score},Вычитание:{sub_score},Деление на ноль:{div_zero_score}")
+        
+    elif task == "2":
+        simple_result = sys.argv[2]
+        not_result = sys.argv[3]
+        empty_result = sys.argv[4]
+        
+        simple_score = extract_score(simple_result)
+        not_score = extract_score(not_result)
+        empty_score = extract_score(empty_result)
+        
+        total = simple_score + not_score + empty_score
+        print(f"TASK2_TOTAL={total}")
+        print(f"TASK2_DETAILS=Простой палиндром:{simple_score},Не палиндром:{not_score},Пустая строка:{empty_score}")
+        
+    elif task == "3":
+        fib0_result = sys.argv[2]
+        fib1_result = sys.argv[3]
+        fib10_result = sys.argv[4]
+        
+        fib0_score = extract_score(fib0_result)
+        fib1_score = extract_score(fib1_result)
+        fib10_score = extract_score(fib10_result)
+        
+        total = fib0_score + fib1_score + fib10_score
+        print(f"TASK3_TOTAL={total}")
+        print(f"TASK3_DETAILS=Fibonacci(0):{fib0_score},Fibonacci(1):{fib1_score},Fibonacci(10):{fib10_score}")
+PYTHON_EOF
+        
+        # Запускаем скрипт с соответствующими аргументами
+        if [ "${{ matrix.task }}" = "1" ]; then
+          python3 extract_scores.py 1 \
+            "${{ steps.task1_add.outputs.result }}" \
+            "${{ steps.task1_sub.outputs.result }}" \
+            "${{ steps.task1_div_zero.outputs.result }}" > scores.txt
+          
+        elif [ "${{ matrix.task }}" = "2" ]; then
+          python3 extract_scores.py 2 \
+            "${{ steps.task2_simple.outputs.result }}" \
+            "${{ steps.task2_not_palindrome.outputs.result }}" \
+            "${{ steps.task2_empty.outputs.result }}" > scores.txt
+          
+        elif [ "${{ matrix.task }}" = "3" ]; then
+          python3 extract_scores.py 3 \
+            "${{ steps.task3_fib0.outputs.result }}" \
+            "${{ steps.task3_fib1.outputs.result }}" \
+            "${{ steps.task3_fib10.outputs.result }}" > scores.txt
+        fi
+        
+        # Загружаем результаты в переменные
+        if [ -f scores.txt ]; then
+          source scores.txt
+          echo "Scores extracted for task ${{ matrix.task }}"
+        else
+          echo "No scores file created"
+        fi
+    
+    - name: Upload Scores Artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: scores-task-${{ matrix.task }}
+        path: scores.txt
+
+  # JOB: СБОРКА ИТОГОВОЙ СВОДКИ
+  generate-final-report:
+    name: Итоговая сводка
+    runs-on: ubuntu-latest
+    needs: grade-tasks
+    if: always()
+    
+    steps:
+    - name: Download all score artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+        pattern: scores-task-*
+        merge-multiple: true
+    
+    - name: Parse and Aggregate Scores
+      id: aggregate
+      run: |
+        # Инициализируем переменные
+        TASK1_SCORE=0
+        TASK2_SCORE=0
+        TASK3_SCORE=0
+        TASK1_DETAILS=""
+        TASK2_DETAILS=""
+        TASK3_DETAILS=""
+        
+        # Парсим все файлы scores.txt
+        for file in $(find ./artifacts -name "scores.txt"); do
+          echo "Processing file: $file"
+          while IFS= read -r line; do
+            if [[ "$line" == TASK1_* ]]; then
+              eval "$line"
+            elif [[ "$line" == TASK2_* ]]; then
+              eval "$line"
+            elif [[ "$line" == TASK3_* ]]; then
+              eval "$line"
+            fi
+          done < "$file"
+        done
+        
+        # Значения по умолчанию
+        TASK1_SCORE=${TASK1_SCORE:-0}
+        TASK2_SCORE=${TASK2_SCORE:-0}
+        TASK3_SCORE=${TASK3_SCORE:-0}
+        TASK1_DETAILS=${TASK1_DETAILS:-"Нет данных"}
+        TASK2_DETAILS=${TASK2_DETAILS:-"Нет данных"}
+        TASK3_DETAILS=${TASK3_DETAILS:-"Нет данных"}
+        
+        # Максимальные баллы
+        TASK1_MAX=30
+        TASK2_MAX=40
+        TASK3_MAX=40
+        
+        TOTAL_SCORE=$((TASK1_SCORE + TASK2_SCORE + TASK3_SCORE))
+        MAX_SCORE=$((TASK1_MAX + TASK2_MAX + TASK3_MAX))
+        
+        # Сохраняем в outputs
+        echo "task1_score=$TASK1_SCORE" >> $GITHUB_OUTPUT
+        echo "task2_score=$TASK2_SCORE" >> $GITHUB_OUTPUT
+        echo "task3_score=$TASK3_SCORE" >> $GITHUB_OUTPUT
+        echo "total_score=$TOTAL_SCORE" >> $GITHUB_OUTPUT
+        echo "max_score=$MAX_SCORE" >> $GITHUB_OUTPUT
+        
+        # Сохраняем в файл
+        echo "TASK1_SCORE=$TASK1_SCORE" > aggregated_scores.txt
+        echo "TASK2_SCORE=$TASK2_SCORE" >> aggregated_scores.txt
+        echo "TASK3_SCORE=$TASK3_SCORE" >> aggregated_scores.txt
+        echo "TOTAL_SCORE=$TOTAL_SCORE" >> aggregated_scores.txt
+        echo "MAX_SCORE=$MAX_SCORE" >> aggregated_scores.txt
+        echo "TASK1_DETAILS=$TASK1_DETAILS" >> aggregated_scores.txt
+        echo "TASK2_DETAILS=$TASK2_DETAILS" >> aggregated_scores.txt
+        echo "TASK3_DETAILS=$TASK3_DETAILS" >> aggregated_scores.txt
+    
+    - name: Generate Final Summary
+      run: |
+        # Читаем агрегированные результаты
+        source aggregated_scores.txt
+        
+        # Расчет процента
+        if [ "$MAX_SCORE" -gt 0 ]; then
+          PERCENTAGE=$((TOTAL_SCORE * 100 / MAX_SCORE))
+        else
+          PERCENTAGE=0
+        fi
+        
+        # Функция для определения статуса
+        get_task_status() {
+          local score="$1"
+          local max="$2"
+          if [ "$max" -eq 0 ]; then
+            echo "❓"
+          elif [ "$score" -eq "$max" ]; then
+            echo "✅ Отлично"
+          elif [ "$score" -ge $((max * 80 / 100)) ]; then
+            echo "⚠️ Хорошо"
+          elif [ "$score" -ge $((max * 60 / 100)) ]; then
+            echo "⚠️ Удовлетворительно"
+          else
+            echo "❌ Не сдано"
+          fi
+        }
+        
+        TASK1_STATUS=$(get_task_status "$TASK1_SCORE" 30)
+        TASK2_STATUS=$(get_task_status "$TASK2_SCORE" 40)
+        TASK3_STATUS=$(get_task_status "$TASK3_SCORE" 40)
+        
+        # Генерация отчета
+        echo "## 📊 ИТОГОВЫЙ ОТЧЕТ ПО ВСЕМ ЗАДАНИЯМ" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 📈 Сводная таблица" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Задание | Баллы | Максимум | Статус |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|-------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Задача 1: Калькулятор** | $TASK1_SCORE | 30 | $TASK1_STATUS |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Задача 2: Палиндром** | $TASK2_SCORE | 40 | $TASK2_STATUS |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Задача 3: Числа Фибоначчи** | $TASK3_SCORE | 40 | $TASK3_STATUS |" >> $GITHUB_STEP_SUMMARY
+        echo "| **ВСЕГО** | **$TOTAL_SCORE** | **$MAX_SCORE** | **$PERCENTAGE%** |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 📝 Детализация по заданиям" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Функция для парсинга деталей
+        parse_details() {
+          local details="$1"
+          echo "$details" | tr ',' '\n' | while IFS=':' read -r test score; do
+            if [ -n "$test" ] && [ -n "$score" ]; then
+              echo "  - $test: **$score** баллов"
+            fi
+          done
+        }
+        
+        echo "#### 🧮 Задача 1: Калькулятор" >> $GITHUB_STEP_SUMMARY
+        parse_details "$TASK1_DETAILS" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "#### 🔤 Задача 2: Проверка палиндромов" >> $GITHUB_STEP_SUMMARY
+        parse_details "$TASK2_DETAILS" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "#### 🔢 Задача 3: Числа Фибоначчи" >> $GITHUB_STEP_SUMMARY
+        parse_details "$TASK3_DETAILS" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Прогресс-бар
+        echo "### 📊 Общий прогресс" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "<div style='background: #e1e4e8; border-radius: 4px; height: 24px; width: 100%; margin: 10px 0;'>" >> $GITHUB_STEP_SUMMARY
+        echo "  <div style='background: #2ea44f; border-radius: 4px; height: 100%; width: $PERCENTAGE%; text-align: center; color: white; font-weight: bold; line-height: 24px;'>" >> $GITHUB_STEP_SUMMARY
+        echo "    $PERCENTAGE%" >> $GITHUB_STEP_SUMMARY
+        echo "  </div>" >> $GITHUB_STEP_SUMMARY
+        echo "</div>" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Финал
+        echo "### 🏆 Итоговая оценка: **$TOTAL_SCORE / $MAX_SCORE**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$TOTAL_SCORE" -eq "$MAX_SCORE" ]; then
+          echo "🎉 **ПОЗДРАВЛЯЕМ! Все задачи выполнены на 100%!**" >> $GITHUB_STEP_SUMMARY
+        elif [ "$PERCENTAGE" -ge 80 ]; then
+          echo "👍 **Отличный результат! Почти все задачи выполнены.**" >> $GITHUB_STEP_SUMMARY
+        elif [ "$PERCENTAGE" -ge 60 ]; then
+          echo "⚠️ **Хорошая работа, но есть куда расти.**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Нужно серьезно поработать над заданиями.**" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "*Автоматическая проверка завершена* • $(date)" >> $GITHUB_STEP_SUMMARY
+    
+    - name: Report to GitHub Classroom
+      uses: classroom-resources/autograding-grading-reporter@v1
+      with:
+        runners: |
+          {
+            "task_01": {
+              "run": "echo 'Task 1 completed'",
+              "points": ${{ steps.aggregate.outputs.task1_score || 0 }}
+            },
+            "task_02": {
+              "run": "echo 'Task 2 completed'",
+              "points": ${{ steps.aggregate.outputs.task2_score || 0 }}
+            },
+            "task_03": {
+              "run": "echo 'Task 3 completed'",
+              "points": ${{ steps.aggregate.outputs.task3_score || 0 }}
+            }
+          }
+        max-total-score: ${{ steps.aggregate.outputs.max_score || 110 }}
+
+  # JOB: ПРОВЕРКА КАЧЕСТВА КОДА
+  code-quality-check:
+    name: Проверка качества кода
+    runs-on: ubuntu-latest
+    needs: grade-tasks
+    if: always()
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+    
+    - name: Install linters
+      run: pip install pylint flake8 ruff -q
+    
+    - name: Create linter report
+      run: |
+        echo "## 🔍 АНАЛИЗ КАЧЕСТВА КОДА ДЛЯ ВСЕХ ЗАДАЧ" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Создаем скрипт для анализа
+        cat > analyze_code.py << 'PYTHON_EOF'
+import subprocess
+import sys
+import os
+
+def run_linter(command, file_path):
+    """Запускает линтер и возвращает результат"""
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        return result.stdout + result.stderr
+    except subprocess.TimeoutExpired:
+        return "Таймаут выполнения"
+    except Exception as e:
+        return f"Ошибка: {str(e)}"
+
+def main():
+    task_files = ["task_01.py", "task_02.py", "task_03.py"]
+    
+    for task_file in task_files:
+        if not os.path.exists(task_file):
+            print(f"⚠️ Файл {task_file} не найден")
+            print()
+            continue
+            
+        print(f"### 📄 Анализ файла: **{task_file}**")
+        print()
+        
+        # Ruff
+        print("#### ⚡ Ruff:")
+        print("```")
+        ruff_result = run_linter(f"ruff check {task_file} --exit-zero", task_file)
+        print(ruff_result[:500])  # Ограничиваем вывод
+        if len(ruff_result) > 500:
+            print("... (вывод обрезан)")
+        print("```")
+        print()
+        
+        # Pylint
+        print("#### 🐍 Pylint:")
+        print("```")
+        pylint_result = run_linter(f"pylint {task_file} --exit-zero --score=yes", task_file)
+        # Берем только последние 5 строк с оценкой
+        lines = pylint_result.strip().split('\n')
+        for line in lines[-5:]:
+            print(line)
+        print("```")
+        print()
+        
+        print("---")
+
+if __name__ == "__main__":
+    main()
+PYTHON_EOF
+        
+        # Запускаем анализ
+        python3 analyze_code.py >> $GITHUB_STEP_SUMMARY
+        
+        # Сводка
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Сводка по качеству кода" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "*Для детального отчета смотрите разделы выше*" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 💡 Рекомендации по улучшению" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Исправьте ошибки с помощью Ruff:**" >> $GITHUB_STEP_SUMMARY
+        echo '   ```bash' >> $GITHUB_STEP_SUMMARY
+        echo '   ruff check --fix .' >> $GITHUB_STEP_SUMMARY
+        echo '   ```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Следуйте PEP 8:** Используйте 4 пробела для отступов, максимум 79 символов в строке" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Добавляйте комментарии к сложным алгоритмам**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "*Качество кода влияет на итоговую оценку*" >> $GITHUB_STEP_SUMMARY
