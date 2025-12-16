@@ -36,7 +36,10 @@ jobs:
       with:
         test-name: "Задача 1: Сложение"
         command: python task_01.py
-        input: "5\n+\n3"
+        input: |
+          5
+          +
+          3
         expected-output: '8'
         comparison-method: exact
         timeout: 5
@@ -49,7 +52,10 @@ jobs:
       with:
         test-name: "Задача 1: Вычитание"
         command: python task_01.py
-        input: "10\n-\n4"
+        input: |
+          10
+          -
+          4
         expected-output: '6'
         comparison-method: exact
         timeout: 5
@@ -62,7 +68,10 @@ jobs:
       with:
         test-name: "Задача 1: Деление на ноль"
         command: python task_01.py
-        input: "10\n/\n0"
+        input: |
+          10
+          /
+          0
         expected-output: 'error'
         comparison-method: contains
         timeout: 5
@@ -152,7 +161,6 @@ jobs:
     - name: Extract and Save Scores
       if: always()
       run: |
-        # Создаем Python скрипт для извлечения баллов
         cat > extract_scores.py << 'PYTHON_EOF'
 import sys
 import json
