@@ -334,13 +334,15 @@ jobs:
     - name: Report to GitHub Classroom
       uses: classroom-resources/autograding-grading-reporter@v1
       with:
+      with:
+        runners: "task_01:${{ steps.calculate.outputs.task1_score }},task_02:${{ steps.calculate.outputs.task2_score }},task_03:${{ steps.calculate.outputs.task3_score }}"
         # Попробуем JSON формат
-        runners: |
-          [
-            {"name": "task_01", "points": ${{ steps.calculate.outputs.task1_score || 0 }}},
-            {"name": "task_02", "points": ${{ steps.calculate.outputs.task2_score || 0 }}},
-            {"name": "task_03", "points": ${{ steps.calculate.outputs.task3_score || 0 }}}
-          ]
+        # runners: |
+        #  [
+        #    {"name": "task_01", "points": ${{ steps.calculate.outputs.task1_score || 0 }}},
+        #    {"name": "task_02", "points": ${{ steps.calculate.outputs.task2_score || 0 }}},
+        #    {"name": "task_03", "points": ${{ steps.calculate.outputs.task3_score || 0 }}}
+        #  ]
 
   # JOB: АНАЛИЗ КАЧЕСТВА КОДА С ЛИНТЕРАМИ
   code-quality-analysis:
